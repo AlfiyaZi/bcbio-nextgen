@@ -16,11 +16,15 @@ import yaml
 
 from bcbio.pipeline.config_utils import load_system_config
 
+OUTPUT_DIR = "test_automated_output"
+
+
 @contextlib.contextmanager
 def make_workdir():
     remove_old_dir = True
-    #remove_old_dir = False
-    dirname = os.path.join(os.path.dirname(__file__), "test_automated_output")
+    # remove_old_dir = False
+#    dirname = os.path.join(os.path.dirname(__file__), output_dir)
+    dirname = os.path.join('/mnt/testbucket/testworkdir', output_dir)
     if remove_old_dir:
         if os.path.exists(dirname):
             shutil.rmtree(dirname)
@@ -31,6 +35,7 @@ def make_workdir():
         yield dirname
     finally:
         os.chdir(orig_dir)
+
 
 def expected_failure(test):
     """Small decorator to mark tests as expected failure.
