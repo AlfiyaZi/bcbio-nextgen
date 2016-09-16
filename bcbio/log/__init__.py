@@ -61,29 +61,24 @@ def _create_log_handler(config, add_hostname=False, direct_hostname=False):
     if log_dir:
         if not os.path.exists(log_dir):
             utils.safe_makedir(log_dir)
-            # Wait to propagate, Otherwise see logging errors on distributed filesystems.
+            # Wait to propagate, 
+            # Otherwise see logging errors on distributed filesystems.
             time.sleep(5)
-        handlers.append(logbook.FileHandler(os.path.join(log_dir, "%s.log" % LOG_NAME),
-                                            format_string=format_str, level="INFO",
-                                            filter=_not_cl))
-        handlers.append(logbook.FileHandler(os.path.join(log_dir, "%s-debug.log" % LOG_NAME),
-                                            format_string=format_str, level="DEBUG", bubble=True,
-                                            filter=_not_cl))
-        handlers.append(logbook.FileHandler(os.path.join(log_dir, "%s-commands.log" % LOG_NAME),
-                                            format_string=format_str, level="DEBUG",
-                                            filter=_is_cl))
-    handlers.append(logbook.StreamHandler(sys.stdout, format_string="{record.message}",
-                                          level="DEBUG", filter=_is_stdout))
-
-    email = config.get("email", config.get("resources", {}).get("log", {}).get("email"))
-    if email:
-        email_str = u'''Subject: [bcbio-nextgen] {record.extra[run]} \n\n {record.message}'''
-        handlers.append(logbook.MailHandler(email, [email],
-                                            format_string=email_str,
-                                            level='INFO', bubble=True))
-
-    handlers.append(logbook.StreamHandler(sys.stderr, format_string=format_str, bubble=True,
-                                          filter=_not_cl))
+    handlers.append(
+        logbook.StreamHandler(
+            sys.stdout,
+            format_string="{record.message}",
+            level="DEBUG"
+        )
+    )
+    handlers.append(
+        logbook.StreamHandler(
+            sys.stderr,
+            format_string=format_str,
+            bubble=True,
+            filter=_not_cl
+        )
+    )
     return CloseableNestedSetup(handlers)
 
 def create_base_logger(config=None, parallel=None):
