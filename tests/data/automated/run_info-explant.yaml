@@ -1,5 +1,8 @@
 upload:
   dir: upload
+resources:
+  tmp:
+    dir: /tmp/explant_tmp
 details:
   # ## RNA-seq
   - analysis: RNA-seq

@@ -1,5 +1,8 @@
 upload:
   dir: upload
+resources:
+  tmp:
+    dir: /tmp/stranded_tmp
 details:
   - analysis: RNA-seq
     files: ['test_1.fq', 'test_2.fq']

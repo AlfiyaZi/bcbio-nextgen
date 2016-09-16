@@ -8,6 +8,9 @@ fc_name: tcancer2
 # XXX Need a useful file here to use as a real test
 globals:
   normal_panel1: ../data/reference_material/7_100326_FC6107FAAXX-grade.vcf
+resources:
+  tmp:
+    dir: /tmp/cancer2_tmp
 details:
   - analysis: variant2
     description: c-tumor

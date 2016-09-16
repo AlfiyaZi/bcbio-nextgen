@@ -1,5 +1,8 @@
 upload:
   dir: upload
+resources:
+  tmp:
+    dir: /tmp/joint_tmp
 details:
   - description: Test1
     analysis: variant2

@@ -5,6 +5,9 @@
 ---
 upload:
   dir: upload
+resources:
+  tmp:
+    dir: /tmp/cwl_tmp
 details:
   - algorithm:
       aligner: snap

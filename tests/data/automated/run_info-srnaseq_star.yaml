@@ -1,5 +1,8 @@
 upload:
   dir: upload
+resources:
+  tmp:
+    dir: /tmp/srnaseq_star_tmp
 fc_date: '150803'
 fc_name: miRQC
 details:

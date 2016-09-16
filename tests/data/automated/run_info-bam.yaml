@@ -7,6 +7,9 @@ upload:
   # galaxy_url: http://localhost:8080
   # galaxy_api_key: 3de311fb973eeabaafc9aebc667b5643
   # galaxy_library: test
+resources:
+  tmp:
+    dir: /tmp/bam_tmp
 details:
   - description: VarOnly
     analysis: variant2

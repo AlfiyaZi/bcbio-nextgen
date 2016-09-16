@@ -1,5 +1,8 @@
 upload:
   dir: upload
+resources:
+  tmp:
+    dir: /tmp/variantcall_tmp
 details:
   - analysis: variant2
     algorithm:

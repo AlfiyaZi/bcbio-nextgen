@@ -1,5 +1,8 @@
 upload:
   dir: upload
+resources:
+  tmp:
+    dir: /tmp/scrnaseq_tmp
 details:
   - analysis: scRNA-seq
     algorithm:
