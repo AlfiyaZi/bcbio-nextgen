@@ -22,10 +22,11 @@ except ImportError:
     import urllib.request as urllib_request
 
 REMOTES = {
-    "requirements": "https://raw.githubusercontent.com/chapmanb/bcbio-nextgen/master/requirements-conda.txt",
-    "gitrepo": "git://github.com/chapmanb/bcbio-nextgen.git",
-    "system_config": "https://raw.github.com/chapmanb/bcbio-nextgen/master/config/bcbio_system.yaml",
-    "anaconda": "https://repo.continuum.io/miniconda/Miniconda-latest-%s-x86_64.sh"}
+    "requirements": "../requirements-conda.txt",
+    "gitrepo": "git://192.168.0.235:10022/tetiana.kh/bcbio.git",
+    "system_config": "config/bcbio_system.yaml",
+    "anaconda": "https://repo.continuum.io/miniconda/Miniconda-latest-%s-x86_64.sh"
+}
 
 def main(args, sys_argv):
     check_arguments(args)
@@ -67,7 +68,8 @@ def bootstrap_bcbionextgen(anaconda, args):
 
 def install_conda_pkgs(anaconda):
     if not os.path.exists(os.path.basename(REMOTES["requirements"])):
-        subprocess.check_call(["wget", "--no-check-certificate", REMOTES["requirements"]])
+        print(os.getcwd())
+        subprocess.check_call(["cp", REMOTES["requirements"], "."])
     subprocess.check_call([anaconda["conda"], "install", "--quiet", "--yes", "-c", "bioconda",
                            "--file", os.path.basename(REMOTES["requirements"])])
     return os.path.join(anaconda["dir"], "bin", "bcbio_nextgen.py")
@@ -107,10 +109,10 @@ def setup_manifest(datadir):
     if not os.path.exists(manifest_dir):
         os.makedirs(manifest_dir)
 
-def write_system_config(base_url, datadir, tooldir):
+def write_system_config(config_path, datadir, tooldir):
     """Write a bcbio_system.yaml configuration file with tool information.
     """
-    out_file = os.path.join(datadir, "galaxy", os.path.basename(base_url))
+    out_file = os.path.join(datadir, "galaxy", os.path.basename(config_path))
     if not os.path.exists(os.path.dirname(out_file)):
         os.makedirs(os.path.dirname(out_file))
     if os.path.exists(out_file):
@@ -123,7 +125,8 @@ def write_system_config(base_url, datadir, tooldir):
     if tooldir:
         java_basedir = os.path.join(tooldir, "share", "java")
     rewrite_ignore = ("log",)
-    with contextlib.closing(urllib_request.urlopen(base_url)) as in_handle:
+    with open(config_path, 'r')  as f:
+        in_handle = f.read()
         with open(out_file, "w") as out_handle:
             in_resources = False
             in_prog = None
