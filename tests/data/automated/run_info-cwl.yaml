@@ -3,8 +3,8 @@
 # for things like alignment splitting, disambiguation, variant
 # and SV calling.
 ---
-upload:
-  dir: upload
+$USER/upload:
+  dir: $USER/upload
 resources:
   tmp:
     dir: /tmp/cwl_tmp

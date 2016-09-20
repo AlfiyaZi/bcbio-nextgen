@@ -1,7 +1,7 @@
 fc_date: '20150229'
 fc_name: 'develtest'
-upload:
-  dir: upload
+$USER/upload:
+  dir: $USER/upload
   # method: galaxy
   # researcher: Test Jones
   # galaxy_url: http://localhost:8080
