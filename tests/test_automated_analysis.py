@@ -17,14 +17,14 @@ import yaml
 from bcbio.pipeline.config_utils import load_system_config
 
 OUTPUT_DIR = "test_automated_output"
+DEFAULT_WORKDIR = os.path.join(os.path.dirname(__file__), output_dir)
 
 
 @contextlib.contextmanager
 def make_workdir():
     remove_old_dir = True
     # remove_old_dir = False
-#    dirname = os.path.join(os.path.dirname(__file__), output_dir)
-    dirname = os.path.join('/mnt/testbucket/testworkdir', output_dir)
+    dirname = os.environ.get('BCBIO_WORKDIR', DEFAULT_WORKDIR)
     if remove_old_dir:
         if os.path.exists(dirname):
             shutil.rmtree(dirname)
@@ -210,8 +210,6 @@ class AutomatedAnalysisTest(unittest.TestCase):
                   os.path.join(self.data_dir, "run_info-fastrnaseq.yaml")]
             subprocess.check_call(cl)
 
-    # XXX Turned off until umis library installed via conda
-    @expected_failure
     @attr(rnaseq=True)
     @attr(scrnaseq=True)
     def test_2_scrnaseq(self):
