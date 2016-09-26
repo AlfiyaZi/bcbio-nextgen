@@ -1,4 +1,4 @@
-$USER/upload:
+upload:
   dir: $USER/upload
 resources:
   tmp:

@@ -3,7 +3,7 @@
 # for things like alignment splitting, disambiguation, variant
 # and SV calling.
 ---
-$USER/upload:
+upload:
   dir: $USER/upload
 resources:
   tmp:

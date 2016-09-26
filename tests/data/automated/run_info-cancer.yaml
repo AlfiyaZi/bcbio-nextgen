@@ -3,7 +3,7 @@ resources:
     jvm_opts: [-Xms1g, -Xmx3g]
   tmp:
     dir: /tmp/cancer_tmp
-$USER/upload:
+upload:
   dir: $USER/upload
 fc_date: '130728'
 fc_name: tcancer

@@ -1,6 +1,6 @@
 fc_date: '20150229'
 fc_name: 'develtest'
-$USER/upload:
+upload:
   dir: $USER/upload
   # method: galaxy
   # researcher: Test Jones

@@ -1,7 +1,7 @@
 # Test cancer runs without normal matched samples or using pre-called
 # normal panels input as VCF files
 ---
-$USER/upload:
+upload:
   dir: $USER/upload
 fc_date: '2014-02-05'
 fc_name: tcancer2
