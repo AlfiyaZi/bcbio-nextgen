@@ -51,13 +51,9 @@ Vagrant.configure(2) do |config|
     vb.memory = "4096"
   end
 
-  config.vm.synced_folder "bcbio/", "/vagrant/bcbio"
-  config.vm.synced_folder "scripts/", "/vagrant/scripts"
-  config.vm.synced_folder "tests/", "/vagrant/tests"
-
-  config.vm.provision "file", source: "./vagrant/vimrc", destination: "~/.vimrc"
-  config.vm.provision "file", source: "./vagrant/aws_credentials", destination: "~/.aws/credentials"
-  config.vm.provision "file", source: "~/GenomeAnalysisTK.jar", destination: "/vagrant/GenomeAnalysisTK.jar"
+  config.vm.provision "file", source: "./vagrant/vimrc", destination: "/home/vagrant/.vimrc"
+  config.vm.provision "file", source: "./vagrant/aws_credentials", destination: "/home/vagrant/.aws/credentials"
+  config.vm.provision "file", source: "~/GenomeAnalysisTK.jar", destination: "/home/vagrant/GenomeAnalysisTK.jar"
   config.vm.provision :shell, path: "./vagrant/bootstrap.sh"
 
   #
