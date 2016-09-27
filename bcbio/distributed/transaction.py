@@ -136,7 +136,6 @@ def _move_file_with_sizecheck(tx_file, final_file):
          'file or directory on temporary storage ({}) size {} bytes '
          'does not equal size of file or directory after transfer to '
          'shared storage ({}) size {} bytes'.format(tx_file, want_size, tmp_file, transfer_size))
-    # Atomically move temporary file on shared storage to final file on shared storage
 
 def _remove_tmpdirs(fnames):
     for x in fnames:
