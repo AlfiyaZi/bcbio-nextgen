@@ -2,7 +2,7 @@
 # normal panels input as VCF files
 ---
 upload:
-  dir: $USER/upload
+  dir: /data/upload
 fc_date: '2014-02-05'
 fc_name: tcancer2
 # XXX Need a useful file here to use as a real test

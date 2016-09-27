@@ -4,7 +4,7 @@
 # and SV calling.
 ---
 upload:
-  dir: $USER/upload
+  dir: /data/upload
 resources:
   tmp:
     dir: /tmp/cwl_tmp

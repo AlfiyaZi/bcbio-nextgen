@@ -4,7 +4,7 @@ resources:
   tmp:
     dir: /tmp/cancer_tmp
 upload:
-  dir: $USER/upload
+  dir: /data/upload
 fc_date: '130728'
 fc_name: tcancer
 details:
