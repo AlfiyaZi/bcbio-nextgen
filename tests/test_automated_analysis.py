@@ -17,7 +17,7 @@ import yaml
 from bcbio.pipeline.config_utils import load_system_config
 
 OUTPUT_DIR = "test_automated_output"
-DEFAULT_WORKDIR = os.path.join(os.path.dirname(__file__), output_dir)
+DEFAULT_WORKDIR = os.path.join(os.path.dirname(__file__), OUTPUT_DIR)
 
 
 @contextlib.contextmanager

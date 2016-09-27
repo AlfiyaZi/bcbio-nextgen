@@ -1,22 +1,18 @@
-#!/usr/bin/env bash
+#source this file.
 
-BUCKET="testbucket"
-checkmounted(){ grep -qs "$1" "/proc/mounts";}
-ATTR=${1:-speed=1}
 set -e
 
-if [ -n "$1" ]; then
-	# Remaining args are passed unmodified to the test runner.
-	shift
-fi
+_BUCKET="testbucket"
+checkmounted(){ grep -qs "$1" "/proc/mounts";}
 
-if checkmounted "$BUCKET"; then
+
+if checkmounted "$_BUCKET"; then
 	echo "S3 bucket is mounted."
 else 
 	echo "Mounting the bucket..."
-	echo "$GOPATH/bin/goofys" --endpoint "s3.eu-central-1.amazonaws.com" --sse testbcbio "/mnt/$BUCKET"
-	"$GOPATH/bin/goofys" --endpoint "s3.eu-central-1.amazonaws.com" --sse testbcbio "/mnt/$BUCKET"
-	if checkmounted "$BUCKET"; then
+	echo "$GOPATH/bin/goofys" --endpoint "s3.eu-central-1.amazonaws.com" --sse testbcbio "/mnt/$_BUCKET"
+	"$GOPATH/bin/goofys" --endpoint "s3.eu-central-1.amazonaws.com" --sse testbcbio "/mnt/$_BUCKET"
+	if checkmounted "$_BUCKET"; then
 		echo "Successfully mounted S3 bucket."
 	else
 		echo "Something went wrong with the mount."
@@ -24,3 +20,10 @@ else
 		sudo grep "fuse\|goofys" /var/log/syslog | tail
 	fi
 fi
+
+echo "BCBIO workdir is now $BCBIO_WORKDIR"
+export BCBIO_WORKDIR=/mnt/testbucket/testworkdir
+
+deactivate () {
+	unset BCBIO_WORKDIR
+}
