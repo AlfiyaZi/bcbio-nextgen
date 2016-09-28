@@ -10,11 +10,11 @@ import os
 import uuid
 import shutil
 import tempfile
-import time
 
 import toolz as tz
 
 from bcbio import utils
+
 
 @contextlib.contextmanager
 def tx_tmpdir(data=None, base_dir=None, remove=True):
@@ -29,30 +29,11 @@ def tx_tmpdir(data=None, base_dir=None, remove=True):
     data can be the full world information object being process or a
     configuration dictionary.
     """
-    if data and "config" in data:
-        config_tmpdir = tz.get_in(("config", "resources", "tmp", "dir"), data)
-    elif data:
-        config_tmpdir = tz.get_in(("resources", "tmp", "dir"), data)
-    else:
-        config_tmpdir = None
-    if config_tmpdir:
-        config_tmpdir = utils.safe_makedir(os.path.expandvars(config_tmpdir))
-        config_tmpdir = os.path.normpath(os.path.join(os.getcwd(), config_tmpdir))
-        tmp_dir_base = os.path.join(config_tmpdir, "bcbiotx", str(uuid.uuid4()))
-        unique_attempts = 0
-        while os.path.exists(tmp_dir_base):
-            if unique_attempts > 5:
-                break
-            tmp_dir_base = os.path.join(config_tmpdir, "bcbiotx", str(uuid.uuid4()))
-            time.sleep(1)
-            unique_attempts += 1
-    elif base_dir is not None:
-        tmp_dir_base = os.path.join(base_dir, "tx")
-    else:
-        tmp_dir_base = os.path.join(os.getcwd(), "tx")
+    config_tmpdir = _get_config_tmpdir(data)
+    tmp_dir_base = _get_base_tmpdir(base_dir, config_tmpdir)
+
     utils.safe_makedir(tmp_dir_base)
     tmp_dir = tempfile.mkdtemp(dir=tmp_dir_base)
-    utils.safe_makedir(tmp_dir)
     try:
         yield tmp_dir
     finally:
@@ -61,8 +42,35 @@ def tx_tmpdir(data=None, base_dir=None, remove=True):
                 if dname and os.path.exists(dname):
                     try:
                         shutil.rmtree(dname, ignore_errors=True)
-                    except:
+                    except Exception:
                         pass
+
+
+def _get_config_tmpdir(data):
+    config_tmpdir = None
+    if data and "config" in data:
+        config_tmpdir = tz.get_in(("config", "resources", "tmp", "dir"), data)
+    elif data:
+        config_tmpdir = tz.get_in(("resources", "tmp", "dir"), data)
+
+    if config_tmpdir:
+        config_tmpdir = os.path.expandvars(config_tmpdir)
+        config_tmpdir = os.path.normpath(
+            os.path.join(os.getcwd(), config_tmpdir))
+
+    return config_tmpdir
+
+
+def _get_base_tmpdir(base_dir, config_tmpdir):
+    if config_tmpdir:
+        tmp_dir_base = os.path.join(
+            config_tmpdir, "bcbiotx", str(uuid.uuid4()))
+    elif base_dir:
+        tmp_dir_base = os.path.join(base_dir, "tx")
+    else:
+        tmp_dir_base = os.path.join(os.getcwd(), "tx")
+    return tmp_dir_base
+
 
 @contextlib.contextmanager
 def file_transaction(*data_and_files):
@@ -135,7 +143,7 @@ def _move_file_with_sizecheck(tx_file, final_file):
         ('distributed.transaction.file_transaction: File copy error: '
          'file or directory on temporary storage ({}) size {} bytes '
          'does not equal size of file or directory after transfer to '
-         'shared storage ({}) size {} bytes'.format(tx_file, want_size, tmp_file, transfer_size))
+         'shared storage ({}) size {} bytes'.format(tx_file, want_size, final_file, transfer_size))
 
 def _remove_tmpdirs(fnames):
     for x in fnames:
