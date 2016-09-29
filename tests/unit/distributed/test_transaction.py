@@ -38,7 +38,7 @@ class DummyTxTmpdir(DummyCM):
 
 
 class DummyFlattenPlusSafe(DummyCM):
-    value = ('foo', 'bar')
+    value = (['foo'], ['bar'])
 
     def __iter__(self):
         for v in self.value:
@@ -290,11 +290,13 @@ def test_flatten_plus_raises_if_empty_fpaths(mock_tx_tmpdir):
 
 
 @mock.patch('bcbio.distributed.transaction.os.remove')
+@mock.patch('bcbio.distributed.transaction.os.stat')
 @mock.patch('bcbio.distributed.transaction.shutil')
 @mock.patch('bcbio.distributed.transaction.os.path.exists')
 @mock.patch('bcbio.distributed.transaction.os.getcwd')
 def test_file_transaction(
-        mock_getcwd, mock_path, mock_shutil, mock_remove, mock_flatten):
+        mock_getcwd, mock_path, mock_shutil,
+        mock_remove, mock_stat, mock_flatten):
     with file_transaction(CONFIG, '/some/path'):
         pass
     pass

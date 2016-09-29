@@ -90,20 +90,17 @@ def file_transaction(*data_and_files):
     a `config` dictionary. This is used to identify global settings for
     temporary directories to create transactional files in.
     """
-    exts = {
-        ".vcf": ".idx",
-        ".bam": ".bai",
-        ".vcf.gz": ".tbi",
-        ".bed.gz": ".tbi"
-    }
     with _flatten_plus_safe(data_and_files) as (safe_names, orig_names):
+        # TODO  how can there be files with the same name if every
+        # temporary dir has a unique name?
         _remove_files(safe_names)  # remove any half-finished transactions
         try:
             if len(safe_names) == 1:
                 yield safe_names[0]
             else:
                 yield tuple(safe_names)
-        except:  # failure -- delete any temporary files
+        except Exception:  # failure -- delete any temporary files
+            # TODO what determines if they are files or directories?
             _remove_files(safe_names)
             _remove_tmpdirs(safe_names)
             raise
@@ -111,21 +108,32 @@ def file_transaction(*data_and_files):
             for safe, orig in zip(safe_names, orig_names):
                 if not os.path.exists(safe):
                     continue
-                utils.safe_makedir(os.path.dirname(orig))
-                # If we are rolling back a directory and it already exists
-                # this will avoid making a nested set of directories
-                if os.path.isdir(orig) and os.path.isdir(safe):
-                    shutil.rmtree(orig)
-
-                _move_file_with_sizecheck(safe, orig)
-                # Move additional, associated files in the same manner
-                for check_ext, check_idx in exts.iteritems():
-                    if safe.endswith(check_ext):
-                        safe_idx = safe + check_idx
-                        if os.path.exists(safe_idx):
-                            _move_file_with_sizecheck(
-                                safe_idx, orig + check_idx)
+                _move_tmp_files(safe, orig)
             _remove_tmpdirs(safe_names)
+
+
+def _move_tmp_files(safe, orig):
+    exts = {
+        ".vcf": ".idx",
+        ".bam": ".bai",
+        ".vcf.gz": ".tbi",
+        ".bed.gz": ".tbi"
+    }
+
+    utils.safe_makedir(os.path.dirname(orig))
+    # If we are rolling back a directory and it already exists
+    # this will avoid making a nested set of directories
+    if os.path.isdir(orig) and os.path.isdir(safe):
+        shutil.rmtree(orig)
+
+    _move_file_with_sizecheck(safe, orig)
+    # Move additional, associated files in the same manner
+    for check_ext, check_idx in exts.iteritems():
+        if not safe.endswith(check_ext):
+            continue
+        safe_idx = safe + check_idx
+        if os.path.exists(safe_idx):
+            _move_file_with_sizecheck(safe_idx, orig + check_idx)
 
 
 def _tx_size(orig):
