@@ -1,6 +1,5 @@
 #source this file.
 
-set -e
 
 _BUCKET="testbucket"
 checkmounted(){ grep -qs "$1" "/proc/mounts";}
@@ -10,8 +9,9 @@ if checkmounted "$_BUCKET"; then
 	echo "S3 bucket is mounted."
 else 
 	echo "Mounting the bucket..."
-	echo "$GOPATH/bin/goofys" --endpoint "s3.eu-central-1.amazonaws.com" --sse testbcbio "/mnt/$_BUCKET"
-	"$GOPATH/bin/goofys" --endpoint "s3.eu-central-1.amazonaws.com" --sse testbcbio "/mnt/$_BUCKET"
+	cmd = "goofys --endpoint s3.eu-central-1.amazonaws.com --sse testbcbio /mnt/$_BUCKET"
+    echo cmd
+    cmd
 	if checkmounted "$_BUCKET"; then
 		echo "Successfully mounted S3 bucket."
 	else

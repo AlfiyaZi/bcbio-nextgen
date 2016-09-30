@@ -307,12 +307,21 @@ def test_file_transaction(
 @mock.patch('bcbio.distributed.transaction.os.path')
 def test_remove_tmpdirs_removes_parent_directory(mock_path, mock_shutil):
     fnames = ['foo']
-    pardir = '/path/to/parent_dir'
-    mock_path.dirname.return_value = pardir
     mock_path.exists.return_value = True
 
     _remove_tmpdirs(fnames)
-    mock_shutil.rmtree.assert_called_once_with(pardir, ignore_errors=True)
+    mock_path.dirname.assert_called_once_with(
+        mock_path.abspath.return_value)
+    mock_shutil.rmtree.assert_called_once_with(
+        mock_path.dirname.return_value, ignore_errors=True)
 
 
+@mock.patch('bcbio.distributed.transaction.shutil')
+@mock.patch('bcbio.distributed.transaction.os.path')
+def test_remove_tmpdirs_doesnt_remove_par_dir_if_not_exists(
+        mock_path, mock_shutil):
+    fnames = ['foo']
+    mock_path.exists.return_value = False
 
+    _remove_tmpdirs(fnames)
+    assert not mock_shutil.rmtree.called
