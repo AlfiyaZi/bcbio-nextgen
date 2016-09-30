@@ -9,6 +9,7 @@ from bcbio.distributed.transaction import _get_config_tmpdir_path
 from bcbio.distributed.transaction import _dirs_to_remove
 from bcbio.distributed.transaction import _flatten_plus_safe
 from bcbio.distributed.transaction import _remove_tmpdirs
+from bcbio.distributed.transaction import _remove_files
 
 
 CWD = 'TEST_CWD'
@@ -325,3 +326,68 @@ def test_remove_tmpdirs_doesnt_remove_par_dir_if_not_exists(
 
     _remove_tmpdirs(fnames)
     assert not mock_shutil.rmtree.called
+
+
+@mock.patch('bcbio.distributed.transaction.shutil')
+@mock.patch('bcbio.distributed.transaction.os.path')
+def test_remove_tmpdirs_removes_pardir_of_each_file(
+        mock_path, mock_shutil):
+    fnames = mock.MagicMock(spec=list)
+    mock_path.exists.return_value = False
+
+    _remove_tmpdirs(fnames)
+    assert fnames.__iter__.called
+
+
+@mock.patch('bcbio.distributed.transaction.shutil')
+@mock.patch('bcbio.distributed.transaction.os.path')
+@mock.patch('bcbio.distributed.transaction.os.remove')
+def test_remove_files_with_os_remove(mock_remove, mock_path, mock_shutil):
+    fnames = ['foo']
+    mock_path.exists.return_value = True
+    mock_path.isfile.return_value = True
+    mock_path.isdir.return_value = False
+
+    _remove_files(fnames)
+    assert mock_remove.called
+    assert not mock_shutil.rmtree.called
+
+
+@mock.patch('bcbio.distributed.transaction.shutil')
+@mock.patch('bcbio.distributed.transaction.os.path')
+@mock.patch('bcbio.distributed.transaction.os.remove')
+def test_remove_files_removes_dirs_with_rmtree(
+        mock_remove, mock_path, mock_shutil):
+    fnames = ['foo']
+    mock_path.exists.return_value = True
+    mock_path.isfile.return_value = False
+    mock_path.isdir.return_value = True
+
+    _remove_files(fnames)
+    assert mock_shutil.rmtree.called
+    assert not mock_remove.called
+
+
+@mock.patch('bcbio.distributed.transaction.shutil')
+@mock.patch('bcbio.distributed.transaction.os.path')
+@mock.patch('bcbio.distributed.transaction.os.remove')
+def test_remove_files_doesnt_remove_nonexistent_files(
+        mock_remove, mock_path, mock_shutil):
+    fnames = ['foo']
+    mock_path.exists.return_value = False
+
+    _remove_files(fnames)
+    assert not mock_shutil.rmtree.called
+    assert not mock_remove.called
+
+
+@mock.patch('bcbio.distributed.transaction.shutil')
+@mock.patch('bcbio.distributed.transaction.os.path')
+@mock.patch('bcbio.distributed.transaction.os.remove')
+def test_remove_files_iterates_over_fnames(
+        mock_remove, mock_path, mock_shutil):
+    fnames = mock.MagicMock(spec=list)
+    mock_path.exists.return_value = False
+
+    _remove_files(fnames)
+    assert fnames.__iter__.called
