@@ -1,6 +1,8 @@
+from collections import namedtuple
 import pytest
 import mock
 
+from bcbio.distributed import transaction
 from bcbio.distributed.transaction import tx_tmpdir
 from bcbio.distributed.transaction import file_transaction
 from bcbio.distributed.transaction import _get_base_tmpdir
@@ -10,7 +12,7 @@ from bcbio.distributed.transaction import _dirs_to_remove
 from bcbio.distributed.transaction import _flatten_plus_safe
 from bcbio.distributed.transaction import _remove_tmpdirs
 from bcbio.distributed.transaction import _remove_files
-
+from bcbio.distributed.transaction import _move_file_with_sizecheck
 
 CWD = 'TEST_CWD'
 CONFIG = {'a': 1}
@@ -63,51 +65,47 @@ def mock_flatten(mocker):
     )
 
 
-@mock.patch('bcbio.distributed.transaction.shutil')
-@mock.patch('bcbio.distributed.transaction.tempfile')
-@mock.patch('bcbio.distributed.transaction.utils.safe_makedir')
+@pytest.yield_fixture
+def mock_io(mocker):
+    mocker.patch('bcbio.distributed.transaction.shutil')
+    mocker.patch('bcbio.distributed.transaction.os.remove')
+    mocker.patch('bcbio.distributed.transaction.os.rename')
+    mocker.patch('bcbio.distributed.transaction.utils.safe_makedir')
+    mocker.patch('bcbio.distributed.transaction.os.stat')
+    mocker.patch('bcbio.distributed.transaction.tempfile')
+    mocker.patch(
+        'bcbio.distributed.transaction.os.getcwd',
+        return_value=CWD
+    )
+    yield None
+
+
 @mock.patch('bcbio.distributed.transaction.os.path.exists')
-@mock.patch('bcbio.distributed.transaction.os.getcwd', return_value=CWD)
-def test_tx_tmpdir_make_tmp_dir(
-        mock_getcwd, mock_exists,  mock_makedirs, mock_tempfile, mock_shutil):
+def test_tx_tmpdir_make_tmp_dir(mock_exists, mock_io):
     with tx_tmpdir():
         pass
     expected_basedir = "%s/tx" % CWD
-    mock_tempfile.mkdtemp.assert_called_once_with(
+    transaction.tempfile.mkdtemp.assert_called_once_with(
         dir=expected_basedir)
-    mock_makedirs.assert_called_once_with(expected_basedir)
+    transaction.utils.safe_makedir.assert_called_once_with(expected_basedir)
 
 
-@mock.patch('bcbio.distributed.transaction.shutil')
-@mock.patch('bcbio.distributed.transaction.tempfile')
-@mock.patch('bcbio.distributed.transaction.utils.safe_makedir')
 @mock.patch('bcbio.distributed.transaction.os.path.exists')
-@mock.patch('bcbio.distributed.transaction.os.getcwd', return_value=CWD)
-def test_tx_tmpdir_yields_tmp_dir(
-        mock_getcwd, mock_exists,  mock_makedirs, mock_tempfile, mock_shutil):
-    expected = mock_tempfile.mkdtemp.return_value
+def test_tx_tmpdir_yields_tmp_dir(mock_exists, mock_io):
+    expected = transaction.tempfile.mkdtemp.return_value
     with tx_tmpdir() as tmp_dir:
         assert tmp_dir == expected
 
 
 @mock.patch('bcbio.distributed.transaction.os.path.exists')
-@mock.patch('bcbio.distributed.transaction.shutil')
-@mock.patch('bcbio.distributed.transaction.tempfile')
-@mock.patch('bcbio.distributed.transaction.utils.safe_makedir')
 @mock.patch('bcbio.distributed.transaction._get_base_tmpdir')
 @mock.patch('bcbio.distributed.transaction._get_config_tmpdir')
 @mock.patch('bcbio.distributed.transaction._get_config_tmpdir_path')
-@mock.patch('bcbio.distributed.transaction.os.getcwd')
 def test_tx_tmpdir_yields_creares_dirs(
-        mock_getcwd,
         mock_get_config_tmpdir_path,
         mock_get_config_tmpdir,
         mock_get_base_tmpdir,
-        mock_makedirs,
-        mock_tempfile,
-        mock_shutil,
-        mock_exists):
-    mock_getcwd.return_value = CWD
+        mock_exists, mock_io):
     data, base_dir = mock.Mock(), mock.Mock()
     with tx_tmpdir(data, base_dir):
         pass
@@ -116,8 +114,10 @@ def test_tx_tmpdir_yields_creares_dirs(
         mock_get_config_tmpdir.return_value, CWD)
     mock_get_base_tmpdir.assert_called_once_with(
         base_dir, mock_get_config_tmpdir_path.return_value, CWD)
-    mock_makedirs.assert_called_once_with(mock_get_base_tmpdir.return_value)
-    mock_tempfile.mkdtemp.assert_called_once_with(
+
+    transaction.utils.safe_makedir.assert_called_once_with(
+        mock_get_base_tmpdir.return_value)
+    transaction.tempfile.mkdtemp.assert_called_once_with(
         dir=mock_get_base_tmpdir.return_value)
 
 
@@ -190,34 +190,25 @@ def test_get_config_tmpdir_path__flow(mock_path):
     assert result == 'NORMALIZED'
 
 
-@mock.patch('bcbio.distributed.transaction.shutil')
-@mock.patch('bcbio.distributed.transaction.tempfile')
-@mock.patch('bcbio.distributed.transaction.utils.safe_makedir')
 @mock.patch('bcbio.distributed.transaction.os.path.exists')
-@mock.patch('bcbio.distributed.transaction.os.getcwd', return_value=CWD)
 @mock.patch('bcbio.distributed.transaction._dirs_to_remove')
 def test_tx_tmpdir_rmtree_not_called_if_remove_is_false(
-        mock_dirs_to_remove, mock_getcwd, mock_exists,
-        mock_makedirs, mock_tempfile, mock_shutil):
+        mock_dirs_to_remove, mock_exists, mock_io):
     mock_dirs_to_remove.return_value = ['foo']
     with tx_tmpdir(remove=False):
         pass
-    assert not mock_shutil.rmtree.called
+    assert not transaction.shutil.rmtree.called
 
 
-@mock.patch('bcbio.distributed.transaction.shutil')
-@mock.patch('bcbio.distributed.transaction.tempfile')
-@mock.patch('bcbio.distributed.transaction.utils.safe_makedir')
 @mock.patch('bcbio.distributed.transaction.os.path.exists')
-@mock.patch('bcbio.distributed.transaction.os.getcwd', return_value=CWD)
 @mock.patch('bcbio.distributed.transaction._dirs_to_remove')
 def test_tx_tmpdir_rmtree_called_if_remove_is_True(
-        mock_dirs_to_remove, mock_getcwd, mock_exists,
-        mock_makedirs, mock_tempfile, mock_shutil):
+        mock_dirs_to_remove, mock_exists, mock_io):
     mock_dirs_to_remove.return_value = ['foo']
     with tx_tmpdir(remove=True):
         pass
-    mock_shutil.rmtree.assert_called_once_with('foo', ignore_errors=True)
+    transaction.shutil.rmtree.assert_called_once_with(
+        'foo', ignore_errors=True)
 
 
 @pytest.mark.parametrize(
@@ -291,6 +282,91 @@ def test_flatten_plus_raises_if_empty_fpaths(mock_tx_tmpdir):
             pass
 
 
+@mock.patch('bcbio.distributed.transaction.os.path')
+def test_remove_tmpdirs_removes_parent_directory(mock_path, mock_io):
+    fnames = ['foo']
+    mock_path.exists.return_value = True
+
+    _remove_tmpdirs(fnames)
+    mock_path.dirname.assert_called_once_with(
+        mock_path.abspath.return_value)
+    transaction.shutil.rmtree.assert_called_once_with(
+        mock_path.dirname.return_value, ignore_errors=True)
+
+
+@mock.patch('bcbio.distributed.transaction.os.path')
+def test_remove_tmpdirs_doesnt_remove_par_dir_if_not_exists(
+        mock_path, mock_io):
+    fnames = ['foo']
+    mock_path.exists.return_value = False
+
+    _remove_tmpdirs(fnames)
+    assert not transaction.shutil.rmtree.called
+
+
+@mock.patch('bcbio.distributed.transaction.os.path')
+def test_remove_tmpdirs_removes_pardir_of_each_file(mock_path, mock_io):
+    fnames = mock.MagicMock(spec=list)
+    mock_path.exists.return_value = False
+
+    _remove_tmpdirs(fnames)
+    assert fnames.__iter__.called
+
+
+@mock.patch('bcbio.distributed.transaction.os.path')
+def test_remove_files_with_os_remove(mock_path, mock_io):
+    fnames = ['foo']
+    mock_path.exists.return_value = True
+    mock_path.isfile.return_value = True
+    mock_path.isdir.return_value = False
+
+    _remove_files(fnames)
+    assert not transaction.shutil.rmtree.called
+    assert transaction.os.remove.called
+
+
+@mock.patch('bcbio.distributed.transaction.os.path')
+def test_remove_files_removes_dirs_with_rmtree(mock_path, mock_io):
+    fnames = ['foo']
+    mock_path.exists.return_value = True
+    mock_path.isfile.return_value = False
+    mock_path.isdir.return_value = True
+
+    _remove_files(fnames)
+    assert transaction.shutil.rmtree.called
+    assert not transaction.os.remove.called
+
+
+@mock.patch('bcbio.distributed.transaction.os.path')
+def test_remove_files_doesnt_remove_nonexistent_files(mock_path, mock_io):
+    fnames = ['foo']
+    mock_path.exists.return_value = False
+
+    _remove_files(fnames)
+    assert not transaction.shutil.rmtree.called
+    assert not transaction.os.remove.called
+
+
+@mock.patch('bcbio.distributed.transaction.os.path')
+def test_remove_files_iterates_over_fnames(
+        mock_path, mock_io):
+    fnames = mock.MagicMock(spec=list)
+    mock_path.exists.return_value = False
+
+    _remove_files(fnames)
+    assert fnames.__iter__.called
+
+
+MockIO = namedtuple('MockIO', [
+    'shutil', 'os_remove', 'os_rename', 'safe_makedir', 'os_stat', 'os_getcwd'
+])
+
+
+@mock.patch('bcbio.distributed.transaction.os.path')
+def test_move_with_sizecheck(mock_path, mock_io):
+    _move_file_with_sizecheck('foo', 'bar')
+    transaction.shutil.move.assert_called_once_with('foo', 'bar.bcbiotmp')
+
 @mock.patch('bcbio.distributed.transaction.os.rename')
 @mock.patch('bcbio.distributed.transaction.os.stat')
 @mock.patch('bcbio.distributed.transaction.os.remove')
@@ -300,95 +376,7 @@ def test_flatten_plus_raises_if_empty_fpaths(mock_tx_tmpdir):
 def test_file_transaction(
         mock_getcwd, mock_path, mock_shutil,
         mock_remove, mock_stat, mock_rename, mock_flatten):
+    # TODO extract meaning out of file-tansaction :)
     with file_transaction(CONFIG, '/some/path'):
         pass
-    pass
 
-
-@mock.patch('bcbio.distributed.transaction.shutil')
-@mock.patch('bcbio.distributed.transaction.os.path')
-def test_remove_tmpdirs_removes_parent_directory(mock_path, mock_shutil):
-    fnames = ['foo']
-    mock_path.exists.return_value = True
-
-    _remove_tmpdirs(fnames)
-    mock_path.dirname.assert_called_once_with(
-        mock_path.abspath.return_value)
-    mock_shutil.rmtree.assert_called_once_with(
-        mock_path.dirname.return_value, ignore_errors=True)
-
-
-@mock.patch('bcbio.distributed.transaction.shutil')
-@mock.patch('bcbio.distributed.transaction.os.path')
-def test_remove_tmpdirs_doesnt_remove_par_dir_if_not_exists(
-        mock_path, mock_shutil):
-    fnames = ['foo']
-    mock_path.exists.return_value = False
-
-    _remove_tmpdirs(fnames)
-    assert not mock_shutil.rmtree.called
-
-
-@mock.patch('bcbio.distributed.transaction.shutil')
-@mock.patch('bcbio.distributed.transaction.os.path')
-def test_remove_tmpdirs_removes_pardir_of_each_file(
-        mock_path, mock_shutil):
-    fnames = mock.MagicMock(spec=list)
-    mock_path.exists.return_value = False
-
-    _remove_tmpdirs(fnames)
-    assert fnames.__iter__.called
-
-
-@mock.patch('bcbio.distributed.transaction.shutil')
-@mock.patch('bcbio.distributed.transaction.os.path')
-@mock.patch('bcbio.distributed.transaction.os.remove')
-def test_remove_files_with_os_remove(mock_remove, mock_path, mock_shutil):
-    fnames = ['foo']
-    mock_path.exists.return_value = True
-    mock_path.isfile.return_value = True
-    mock_path.isdir.return_value = False
-
-    _remove_files(fnames)
-    assert mock_remove.called
-    assert not mock_shutil.rmtree.called
-
-
-@mock.patch('bcbio.distributed.transaction.shutil')
-@mock.patch('bcbio.distributed.transaction.os.path')
-@mock.patch('bcbio.distributed.transaction.os.remove')
-def test_remove_files_removes_dirs_with_rmtree(
-        mock_remove, mock_path, mock_shutil):
-    fnames = ['foo']
-    mock_path.exists.return_value = True
-    mock_path.isfile.return_value = False
-    mock_path.isdir.return_value = True
-
-    _remove_files(fnames)
-    assert mock_shutil.rmtree.called
-    assert not mock_remove.called
-
-
-@mock.patch('bcbio.distributed.transaction.shutil')
-@mock.patch('bcbio.distributed.transaction.os.path')
-@mock.patch('bcbio.distributed.transaction.os.remove')
-def test_remove_files_doesnt_remove_nonexistent_files(
-        mock_remove, mock_path, mock_shutil):
-    fnames = ['foo']
-    mock_path.exists.return_value = False
-
-    _remove_files(fnames)
-    assert not mock_shutil.rmtree.called
-    assert not mock_remove.called
-
-
-@mock.patch('bcbio.distributed.transaction.shutil')
-@mock.patch('bcbio.distributed.transaction.os.path')
-@mock.patch('bcbio.distributed.transaction.os.remove')
-def test_remove_files_iterates_over_fnames(
-        mock_remove, mock_path, mock_shutil):
-    fnames = mock.MagicMock(spec=list)
-    mock_path.exists.return_value = False
-
-    _remove_files(fnames)
-    assert fnames.__iter__.called
