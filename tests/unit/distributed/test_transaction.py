@@ -291,14 +291,15 @@ def test_flatten_plus_raises_if_empty_fpaths(mock_tx_tmpdir):
             pass
 
 
-@mock.patch('bcbio.distributed.transaction.os.remove')
+@mock.patch('bcbio.distributed.transaction.os.rename')
 @mock.patch('bcbio.distributed.transaction.os.stat')
+@mock.patch('bcbio.distributed.transaction.os.remove')
 @mock.patch('bcbio.distributed.transaction.shutil')
 @mock.patch('bcbio.distributed.transaction.os.path.exists')
 @mock.patch('bcbio.distributed.transaction.os.getcwd')
 def test_file_transaction(
         mock_getcwd, mock_path, mock_shutil,
-        mock_remove, mock_stat, mock_flatten):
+        mock_remove, mock_stat, mock_rename, mock_flatten):
     with file_transaction(CONFIG, '/some/path'):
         pass
     pass
