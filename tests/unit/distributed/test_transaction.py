@@ -8,6 +8,7 @@ from bcbio.distributed.transaction import _get_config_tmpdir
 from bcbio.distributed.transaction import _get_config_tmpdir_path
 from bcbio.distributed.transaction import _dirs_to_remove
 from bcbio.distributed.transaction import _flatten_plus_safe
+from bcbio.distributed.transaction import _remove_tmpdirs
 
 
 CWD = 'TEST_CWD'
@@ -300,3 +301,18 @@ def test_file_transaction(
     with file_transaction(CONFIG, '/some/path'):
         pass
     pass
+
+
+@mock.patch('bcbio.distributed.transaction.shutil')
+@mock.patch('bcbio.distributed.transaction.os.path')
+def test_remove_tmpdirs_removes_parent_directory(mock_path, mock_shutil):
+    fnames = ['foo']
+    pardir = '/path/to/parent_dir'
+    mock_path.dirname.return_value = pardir
+    mock_path.exists.return_value = True
+
+    _remove_tmpdirs(fnames)
+    mock_shutil.rmtree.assert_called_once_with(pardir, ignore_errors=True)
+
+
+
