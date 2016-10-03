@@ -25,6 +25,7 @@ def run_sailfish(data):
     fasta_file = dd.get_ref_file(data)
     assert file_exists(fasta_file), "%s was not found, exiting." % fasta_file
     stranded = dd.get_strandedness(data).lower()
+    # TODO
     out_file = sailfish(fq1, fq2, sailfish_dir, gtf_file, fasta_file, stranded, data)
     data = dd.set_sailfish(data, out_file)
     data = dd.set_sailfish_dir(data, sailfish_dir)
@@ -62,7 +63,8 @@ def sailfish(fq1, fq2, sailfish_dir, gtf_file, ref_file, strandedness, data):
     message = "Quantifying transcripts in {fq1} and {fq2}."
     with file_transaction(data, quant_dir) as tx_out_dir:
         do.run(cmd.format(**locals()), message.format(**locals()), None)
-    _sleuthify_sailfish(quant_dir)
+    # TODO
+        _sleuthify_sailfish(tx_out_dir)
     return out_file
 
 def _sleuthify_sailfish(sailfish_dir):
@@ -75,6 +77,7 @@ def _sleuthify_sailfish(sailfish_dir):
     else:
         rscript = Rscript_cmd()
         cmd = """{rscript} -e 'library("wasabi"); prepare_fish_for_sleuth(c("{sailfish_dir}"))'"""
+        # TODO
         do.run(cmd.format(**locals()), "Converting Sailfish to Sleuth format.")
     return os.path.join(sailfish_dir, "abundance.h5")
 
