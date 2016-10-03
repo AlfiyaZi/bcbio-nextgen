@@ -22,9 +22,9 @@ else
 fi
 
 export BCBIO_WORKDIR=/mnt/testbucket/testworkdir
-echo "BCBIO workdir is now $BCBIO_WORKDIR"
+echo "BCBIO_WORKDIR is now $BCBIO_WORKDIR"
 
 deactivate () {
+	echo "BCBIO_WORKDIR is no longer $BCBIO_WORKDIR"
 	unset BCBIO_WORKDIR
-	echo "Bcbio workdir is no longer $BCBIO_WORKDIR"
 }
