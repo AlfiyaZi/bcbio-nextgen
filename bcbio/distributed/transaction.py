@@ -14,6 +14,7 @@ import tempfile
 import toolz as tz
 
 from bcbio import utils
+from bcbio.log import logger
 
 
 @contextlib.contextmanager
@@ -36,6 +37,7 @@ def tx_tmpdir(data=None, base_dir=None, remove=True):
 
     utils.safe_makedir(tmp_dir_base)
     tmp_dir = tempfile.mkdtemp(dir=tmp_dir_base)
+    logger.info("Created tmp dir %s " % tmp_dir)
     try:
         yield tmp_dir
     finally:
@@ -68,10 +70,11 @@ def _get_base_tmpdir(base_dir, config_tmpdir, cwd):
     if config_tmpdir:
         tmp_dir_base = os.path.join(
             config_tmpdir, "bcbiotx", str(uuid.uuid4()))
-    elif base_dir:
-        tmp_dir_base = os.path.join(base_dir, "tx")
+    # elif base_dir:
+    #     tmp_dir_base = os.path.join(base_dir, "tx")
     else:
-        tmp_dir_base = os.path.join(cwd, "tx")
+        # tmp_dir_base = os.path.join(cwd, "tx")
+        tmp_dir_base = '/tmp'
     return tmp_dir_base
 
 
@@ -150,30 +153,33 @@ def _tx_size(orig):
 def _move_file_with_sizecheck(tx_file, final_file):
     """Move transaction file to final location, with size checks avoiding failed transfers.
     """
+
+    logger.info("Moving %s to %s" % (tx_file, final_file))
     tmp_file = final_file + ".bcbiotmp"
     # Remove any partially transferred directories or files
-    if os.path.exists(tmp_file):
-        if os.path.isdir(tmp_file):
-            _remove_tmpdirs([tmp_file])
+    if os.path.exists(final_file):
+        if os.path.isdir(final_file):
+            _remove_tmpdirs([final_file])
         else:
-            _remove_files([tmp_file])
+            _remove_files([final_file])
     want_size = _tx_size(tx_file)
     # Move files from temporary storage to shared storage under a temporary name
-    shutil.move(tx_file, tmp_file)
+    shutil.move(tx_file, final_file)
 
     # Validate that file sizes of file before and after transfer are identical
     try:
-        transfer_size = _tx_size(tmp_file)
+        transfer_size = _tx_size(final_file)
     # Avoid race conditions where transaction file has already been renamed
-    except OSError:
+    except OSError as e:
+        logger.info( str(e))
         return
     assert want_size == transfer_size, \
         ('distributed.transaction.file_transaction: File copy error: '
          'file or directory on temporary storage ({}) size {} bytes '
          'does not equal size of file or directory after transfer to '
-         'shared storage ({}) size {} bytes'.format(tx_file, want_size, tmp_file, transfer_size))
+         'shared storage ({}) size {} bytes'.format(tx_file, want_size, final_file, transfer_size))
     # Atomically move temporary file on shared storage to final file on shared storage
-    os.rename(tmp_file, final_file)
+    # os.rename(tmp_file, final_file)
 
 
 def _remove_tmpdirs(fnames):

@@ -7,11 +7,11 @@ import shutil
 import tempfile
 import pandas as pd
 from bcbio.utils import get_in, file_exists, safe_makedir
-from bcbio.distributed.transaction import file_transaction
+from bcbio.distributed.transaction import file_transaction, tx_tmpdir
 from bcbio.log import logger
 from bcbio.pipeline import config_utils
 from bcbio.provenance import do
-from bcbio.rnaseq import gtf, annotate_gtf
+from bcbio.rnaseq import gtf, annotate_gtf, cpat
 
 
 def run(align_file, ref_file, data):
@@ -172,7 +172,7 @@ def is_novel_single_exon(db, transcript):
     return False
 
 
-def fix_cufflinks_attributes(ref_gtf, merged_gtf, data, out_file=None):
+def fix_cufflinks_attributes(ref_db, merged_gtf, data, out_file=None):
     """
     replace the cufflinks gene_id and transcript_id with the
     gene_id and transcript_id from ref_gtf, where available
@@ -182,7 +182,6 @@ def fix_cufflinks_attributes(ref_gtf, merged_gtf, data, out_file=None):
     fixed = out_file if out_file else base + ".clean.fixed" + ext
     if file_exists(fixed):
         return fixed
-    ref_db = gtf.get_gtf_db(ref_gtf)
     merged_db = gtf.get_gtf_db(merged_gtf, in_memory=True)
 
     ref_tid_to_gid = {}
@@ -245,17 +244,31 @@ def merge(assembled_gtfs, ref_file, gtf_file, num_cores, data):
         return out_file
     if not file_exists(merged_file):
         with file_transaction(data, out_dir) as tmp_out_dir:
-            cmd = ("cuffmerge -o {tmp_out_dir} --ref-gtf {gtf_file} "
-                   "--num-threads {num_cores} --ref-sequence {ref_file} "
+            cmd = ("cuffmerge -o {tmp_out_dir} "
+                   "--ref-gtf {gtf_file} "
+                   "--num-threads {num_cores} "
+                   "--ref-sequence {ref_file} "
                    "{assembled_file}")
             cmd = cmd.format(**locals())
             message = ("Merging the following transcript assemblies with "
                        "Cuffmerge: %s" % ", ".join(assembled_gtfs))
             do.run(cmd, message)
     clean, _ = clean_assembly(merged_file)
-    fixed = fix_cufflinks_attributes(gtf_file, clean, data)
-    classified = annotate_gtf.annotate_novel_coding(fixed, gtf_file, ref_file,
-                                                    data)
-    filtered = annotate_gtf.cleanup_transcripts(classified, gtf_file, ref_file)
-    shutil.move(filtered, out_file)
+    with tx_tmpdir(data=data) as tmpdir:
+        gtf_db = gtf.get_gtf_db(gtf_file, location=tmpdir)
+        fixed = fix_cufflinks_attributes(gtf_db, clean, data)
+        classified = cpat.classify_with_cpat(
+            fixed, gtf_file, ref_file, data)
+        if not classified:
+            logger.info("Protein coding classification of %s was skipped because "
+                        "CPAT was not found." % fixed)
+            classified = fixed
+        else:
+            fixed_db = gtf.get_gtf_db(fixed, location=tmpdir)
+            classified = annotate_gtf.annotate_novel_coding(
+                fixed_db, gtf_db, ref_file, data, out_file)
+        classified_db = gtf.get_gtf_db(classified, location=tmpdir)
+        filtered = annotate_gtf.cleanup_transcripts(
+            classified, classified_db, gtf_db, ref_file)
+        shutil.move(filtered, out_file)
     return out_file

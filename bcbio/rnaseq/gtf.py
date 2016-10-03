@@ -33,11 +33,12 @@ def guess_infer_extent(gtf_file):
     else:
         return True
 
-def get_gtf_db(gtf, in_memory=False):
+
+def get_gtf_db(gtf, location=None, in_memory=False):
     """
     create a gffutils DB
     """
-    db_file = gtf + ".db"
+    db_file = _get_db_file(gtf, location)
     if file_exists(db_file):
         return gffutils.FeatureDB(db_file)
     db_file = ":memory:" if in_memory else db_file
@@ -49,6 +50,14 @@ def get_gtf_db(gtf, in_memory=False):
         return db
     else:
         return gffutils.FeatureDB(db_file)
+
+
+def _get_db_file(gtf, location):
+    db_file_name = gtf + ".db"
+    if not location:
+        return db_file_name
+    return os.path.join(location, os.path.basename(db_file_name))
+
 
 def gtf_to_bed(gtf, alt_out_dir=None):
     """
@@ -207,17 +216,23 @@ def get_coding_noncoding_transcript_ids(gtf):
                      if 'transcript_id' in x.attributes])
     return coding_ids, noncoding_ids
 
+
 def get_gene_source_set(gtf):
     """
     get a dictionary of the set of all sources for a gene
     """
-    gene_to_source = {}
     db = get_gtf_db(gtf)
-    for feature in complete_features(db):
+    return get_gene_source_set_from_db(db)
+
+
+def get_gene_source_set_from_db(gtf_db):
+    gene_to_source = {}
+    for feature in complete_features(gtf_db):
         gene_id = feature['gene_id'][0]
         sources = gene_to_source.get(gene_id, set([])).union(set([feature.source]))
         gene_to_source[gene_id] = sources
     return gene_to_source
+
 
 def get_transcript_source_set(gtf):
     """
