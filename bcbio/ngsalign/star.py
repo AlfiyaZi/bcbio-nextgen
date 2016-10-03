@@ -18,6 +18,13 @@ CLEANUP_FILES = ["Aligned.out.sam", "Log.out", "Log.progress.out"]
 ALIGN_TAGS = ["NH", "HI", "NM", "MD", "AS"]
 
 def align(fastq_file, pair_file, ref_file, names, align_dir, data):
+    if not ref_file:
+        logger.error("STAR index not found. We don't provide the STAR indexes "
+                     "by default because they are very large. You can install "
+                     "the index for your genome with: bcbio_nextgen.py upgrade "
+                     "--aligners star --genomes genome-build-name --data")
+        sys.exit(1)
+
     max_hits = 10
     srna = True if data["analysis"].lower().startswith("smallrna-seq") else False
     srna_opts = ""
@@ -28,13 +35,6 @@ def align(fastq_file, pair_file, ref_file, names, align_dir, data):
     out_prefix = os.path.join(align_dir, dd.get_lane(data))
     out_file = out_prefix + "Aligned.out.sam"
     out_dir = os.path.join(align_dir, "%s_star" % dd.get_lane(data))
-
-    if not ref_file:
-        logger.error("STAR index not found. We don't provide the STAR indexes "
-                     "by default because they are very large. You can install "
-                     "the index for your genome with: bcbio_nextgen.py upgrade "
-                     "--aligners star --genomes genome-build-name --data")
-        sys.exit(1)
 
     final_out = os.path.join(out_dir, "{0}.bam".format(names["sample"]))
     if file_exists(final_out):
@@ -50,7 +50,7 @@ def align(fastq_file, pair_file, ref_file, names, align_dir, data):
         ref_file = os.path.dirname(ref_file)
 
     cmd = ("{star_path} --genomeDir {ref_file} --readFilesIn {fastq_files} "
-           "--runThreadN {num_cores} --outFileNamePrefix {out_prefix} "
+           "--runThreadN {num_cores} --outFileNamePrefix {tx_out_prefix} "
            "--outReadsUnmapped Fastx --outFilterMultimapNmax {max_hits} "
            "--outStd SAM {srna_opts} "
            "--outSAMunmapped Within --outSAMattributes %s " % " ".join(ALIGN_TAGS))
@@ -71,7 +71,11 @@ def align(fastq_file, pair_file, ref_file, names, align_dir, data):
     if not srna:
         cmd += " --quantMode TranscriptomeSAM "
 
-    with file_transaction(data, final_out) as tx_final_out:
+    # with file_transaction(data, final_out) as tx_final_out:
+    #     tx_out_prefix = out_prefix
+    with file_transaction(data, align_dir, final_out) as (tx_align_dir, tx_final_out):
+        utils.safe_makedir(tx_align_dir)
+        tx_out_prefix = os.path.join(tx_align_dir, os.path.basename(out_prefix))
         cmd += " | " + postalign.sam_to_sortbam_cl(data, tx_final_out)
         run_message = "Running STAR aligner on %s and %s" % (fastq_file, ref_file)
         do.run(cmd.format(**locals()), run_message, None)
