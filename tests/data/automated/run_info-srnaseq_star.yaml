@@ -15,7 +15,7 @@ details:
       species: hsa
     description: miRQCa
     files:
-      - ../data/test_srnaseq/mirqca.fastq
+      - /bcbio-nextgen/tests/data/test_srnaseq/mirqca.fastq
     genome_build: hg19
     metadata:
       type: mirqc
