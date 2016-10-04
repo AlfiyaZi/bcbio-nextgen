@@ -40,12 +40,13 @@ def summary(*samples):
     folders += ["trimmed", "htseq-count/*summary"]
     if not utils.file_exists(out_file):
         with utils.chdir(work_dir):
-            input_dir = [_check_multiqc_input(d) for d in folders]
-            input_dir = _create_list_file(input_dir)
+            input_dir = (_check_multiqc_input(d) for d in folders)
+            input_dir = [f for f in input_dir if f]
             export_tmp = ""
             if dd.get_tmp_dir(samples[0]):
                 export_tmp = "export TMPDIR=%s &&" % dd.get_tmp_dir(samples[0])
-            if input_dir.strip():
+            if input_dir:
+                input_dir = _create_list_file(input_dir)
                 cmd = "{export_tmp} {multiqc} -f -l {input_dir} -o {tx_out} {opts}"
                 with tx_tmpdir(data, work_dir) as tx_out:
                     do.run(cmd.format(**locals()), "Run multiqc")
@@ -72,8 +73,7 @@ def _create_list_file(dirs):
     out_file = "list_files.txt"
     with open(out_file, "w") as outh:
         for f in dirs:
-            if f:
-                print >>outh, f
+            outh.write('%\n' % f)
     return out_file
 
 def _check_multiqc_input(path):
