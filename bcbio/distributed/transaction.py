@@ -5,6 +5,7 @@ locations during processing and copied to the final location when finished.
 This ensures output files will be complete independent of method of
 interruption.
 """
+from collections import namedtuple
 import contextlib
 import os
 import uuid
@@ -18,10 +19,11 @@ from bcbio.log import logger
 
 
 DEFAULT_TMP = '/tmp'
+DataAndFiles = namedtuple('DataAndFiles', ['data', 'rollback_files'])
 
 
 @contextlib.contextmanager
-def tx_tmpdir(data=None, base_dir=None, remove=True):
+def tx_tmpdir(data=None, remove=True):
     """Context manager to create and remove a transactional temporary directory.
 
     Handles creating a transactional directory for running commands in. Will
@@ -51,10 +53,8 @@ def tx_tmpdir(data=None, base_dir=None, remove=True):
 
 
 def _get_config_tmpdir(data):
-    config_tmpdir = None
-    if data and "config" in data:
-        config_tmpdir = tz.get_in(("config", "resources", "tmp", "dir"), data)
-    elif data:
+    config_tmpdir = tz.get_in(("config", "resources", "tmp", "dir"), data)
+    if not config_tmpdir:
         config_tmpdir = tz.get_in(("resources", "tmp", "dir"), data)
 
     return config_tmpdir
@@ -90,8 +90,6 @@ def file_transaction(*data_and_files):
     temporary directories to create transactional files in.
     """
     with _flatten_plus_safe(data_and_files) as (safe_names, orig_names):
-        # TODO  how can there be files with the same name if every
-        # temporary dir has a unique name?
         _remove_files(safe_names)  # remove any half-finished transactions
         try:
             if len(safe_names) == 1:
@@ -99,15 +97,12 @@ def file_transaction(*data_and_files):
             else:
                 yield tuple(safe_names)
         except Exception:  # failure -- delete any temporary files
-            # TODO what determines if they are files or directories?
-            _remove_files(safe_names)
             _remove_tmpdirs(safe_names)
             raise
         else:  # worked -- move the temporary files to permanent location
             for safe, orig in zip(safe_names, orig_names):
-                if not os.path.exists(safe):
-                    continue
-                _move_tmp_files(safe, orig)
+                if os.path.exists(safe):
+                    _move_tmp_files(safe, orig)
             _remove_tmpdirs(safe_names)
 
 
@@ -151,7 +146,6 @@ def _move_file_with_sizecheck(tx_file, final_file):
     """
 
     logger.info("Moving %s to %s" % (tx_file, final_file))
-    tmp_file = final_file + ".bcbiotmp"
     # Remove any partially transferred directories or files
     if os.path.exists(final_file):
         if os.path.isdir(final_file):
@@ -198,23 +192,30 @@ def _remove_files(fnames):
 def _flatten_plus_safe(data_and_files):
     """Flatten names of files and create temporary file names.
     """
-    data_and_files = [x for x in data_and_files if x]
+    args = _normalize_args(data_and_files)
+    with tx_tmpdir(args.data) as tmpdir:
+        tx_files = [os.path.join(tmpdir, os.path.basename(f))
+                    for f in args.rollback_files]
+        yield tx_files, args.rollback_files
+
+
+def _normalize_args(data_and_files):
+    data, files = _get_args(data_and_files)
+    flattened_filenames = (f for f in _flatten(files))
+    rollback_files = [f for f in flattened_filenames if f]
+    return DataAndFiles(data, rollback_files)
+
+
+def _get_args(data_and_files):
     if isinstance(data_and_files[0], dict):
-        data = data_and_files[0]
-        rollback_files = data_and_files[1:]
-    else:
-        data = None
-        rollback_files = data_and_files
-    tx_files, orig_files = [], []
-    base_fname = rollback_files[0]
-    if isinstance(base_fname, (list, tuple)):
-        base_fname = base_fname[0]
-    with tx_tmpdir(data, os.path.dirname(base_fname)) as tmpdir:
-        for fnames in rollback_files:
-            if isinstance(fnames, basestring):
-                fnames = [fnames]
-            for fname in fnames:
-                tx_file = os.path.join(tmpdir, os.path.basename(fname))
-                tx_files.append(tx_file)
-                orig_files.append(fname)
-        yield tx_files, orig_files
+        return data_and_files[0], data_and_files[1:]
+    return None, data_and_files
+
+
+def _flatten(iterable):
+    for elem in iterable:
+        if isinstance(elem, (tuple, list)):
+            for i in elem:
+                yield i
+        else:
+            yield elem

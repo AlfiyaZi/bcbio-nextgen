@@ -230,10 +230,10 @@ def test_get_dirs_to_remove(tmp_dir, tmp_dir_base, config_tmpdir, expected):
 
 
 @pytest.mark.parametrize(('args', 'exp_tx_args'), [
-    (('/path/to/somefile',), (None, '/path/to')),
-    ((CONFIG, '/path/to/somefile'), (CONFIG, '/path/to')),
-    ((CONFIG, ['/path/to/somefile']), (CONFIG, '/path/to')),
-    ((CONFIG, '/path/to/somefile', '/otherpath/to/file'), (CONFIG, '/path/to'))
+    (('/path/to/somefile',), (None,)),
+    ((CONFIG, '/path/to/somefile'), (CONFIG,)),
+    ((CONFIG, ['/path/to/somefile']), (CONFIG,)),
+    ((CONFIG, '/path/to/somefile', '/otherpath/to/file'), (CONFIG,))
 ])
 def test_flatten_plus_safe_calls_tx_tmpdir(args, exp_tx_args, mock_tx_tmpdir):
     with _flatten_plus_safe(args) as (result_tx, result_safe):
@@ -271,18 +271,11 @@ def test_flatten_plus_safe_returns_original_files(
         assert result_safe == expected_safe
 
 
-def test_flatten_plus_safe_filters_args(mock_tx_tmpdir):
-    args = ({}, ['/path/to/somefile'])
-    with _flatten_plus_safe(args) as (_, _):
-        pass
-    mock_tx_tmpdir.assert_called_once_with(None, '/path/to')
-
-
-def test_flatten_plus_raises_if_empty_fpaths(mock_tx_tmpdir):
-    args = (CONFIG, [])
-    with pytest.raises(IndexError):
-        with _flatten_plus_safe(args) as (_, _):
-            pass
+def test_flatten_plus_safe_doesnt_break_on_empty_paths(mock_tx_tmpdir):
+    args = (CONFIG,)
+    with _flatten_plus_safe(args) as (a, b):
+        assert a == []
+        assert b == []
 
 
 @mock.patch('bcbio.distributed.transaction.os.path')
