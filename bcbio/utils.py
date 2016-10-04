@@ -222,6 +222,17 @@ def file_exists(fname):
     except OSError:
         return False
 
+
+def get_size(path):
+    """ Returns the size in bytes if `path` is a file,
+        or the size of all files in `path` if it's a directory.
+        Analogous to `du -s`.
+    """
+    if os.path.isfile(path):
+        return os.path.getsize(path)
+    return sum(get_size(os.path.join(path, f)) for f in os.listdir(path))
+
+
 def file_uptodate(fname, cmp_fname):
     """Check if a file exists, is non-empty and is more recent than cmp_fname.
     """

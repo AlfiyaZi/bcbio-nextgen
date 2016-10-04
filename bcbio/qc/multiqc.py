@@ -73,7 +73,7 @@ def _create_list_file(dirs):
     out_file = "list_files.txt"
     with open(out_file, "w") as outh:
         for f in dirs:
-            outh.write('%\n' % f)
+            outh.write('%s\n' % f)
     return out_file
 
 def _check_multiqc_input(path):

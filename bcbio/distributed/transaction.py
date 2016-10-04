@@ -5,10 +5,8 @@ locations during processing and copied to the final location when finished.
 This ensures output files will be complete independent of method of
 interruption.
 """
-from collections import namedtuple
 import contextlib
 import os
-import uuid
 import shutil
 import tempfile
 
@@ -18,8 +16,7 @@ from bcbio import utils
 from bcbio.log import logger
 
 
-DEFAULT_TMP = '/tmp'
-DataAndFiles = namedtuple('DataAndFiles', ['data', 'rollback_files'])
+DEFAULT_TMP = '/tmp/bcbiotx'
 
 
 @contextlib.contextmanager
@@ -27,7 +24,7 @@ def tx_tmpdir(data=None, remove=True):
     """Context manager to create and remove a transactional temporary directory.
 
     Handles creating a transactional directory for running commands in. Will
-    use either the current directory or a configured temporary directory.
+    use either the current directory or /tmp/bcbiotx.
 
     Creates an intermediary location and time specific directory for global
     temporary directories to prevent collisions.
@@ -36,49 +33,29 @@ def tx_tmpdir(data=None, remove=True):
     configuration dictionary.
     """
     cwd = os.getcwd()
-    config_tmpdir = _get_config_tmpdir(data)
-    config_tmpdir_path = _get_config_tmpdir_path(config_tmpdir, cwd)
-    tmp_dir_base = _get_base_tmpdir(config_tmpdir_path)
+    tmpdir_base = _get_base_tmpdir(data)
+    tmpdir_base = _get_dir_abspath(tmpdir_base, cwd)
 
-    utils.safe_makedir(tmp_dir_base)
-    tmp_dir = tempfile.mkdtemp(dir=tmp_dir_base)
+    utils.safe_makedir(tmpdir_base)
+    tmp_dir = tempfile.mkdtemp(dir=tmpdir_base)
     logger.info("Created tmp dir %s " % tmp_dir)
     try:
         yield tmp_dir
     finally:
-        if not remove:
-            return
-        for dname in _dirs_to_remove(tmp_dir, tmp_dir_base, config_tmpdir):
-            shutil.rmtree(dname, ignore_errors=True)
+        if remove:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
-def _get_config_tmpdir(data):
+def _get_dir_abspath(path, default_pardir):
+    path = os.path.expandvars(path)
+    return os.path.normpath(os.path.join(default_pardir, path))
+
+
+def _get_base_tmpdir(data):
     config_tmpdir = tz.get_in(("config", "resources", "tmp", "dir"), data)
     if not config_tmpdir:
         config_tmpdir = tz.get_in(("resources", "tmp", "dir"), data)
-
-    return config_tmpdir
-
-
-def _get_config_tmpdir_path(config_tmpdir, cwd):
-    if config_tmpdir:
-        config_tmpdir = os.path.expandvars(config_tmpdir)
-        config_tmpdir = os.path.normpath(os.path.join(cwd, config_tmpdir))
-
-        return config_tmpdir
-    return None
-
-
-def _get_base_tmpdir(config_tmpdir):
-    base = config_tmpdir if config_tmpdir else DEFAULT_TMP
-    return os.path.join(base, "bcbiotx", str(uuid.uuid4()))
-
-
-def _dirs_to_remove(tmp_dir, tmp_dir_base, config_tmpdir):
-    result = (tmp_dir,)
-    if config_tmpdir:
-        result += (tmp_dir_base, )
-    return (dirname for dirname in result if dirname)
+    return config_tmpdir or DEFAULT_TMP
 
 
 @contextlib.contextmanager
@@ -91,19 +68,17 @@ def file_transaction(*data_and_files):
     """
     with _flatten_plus_safe(data_and_files) as (safe_names, orig_names):
         _remove_files(safe_names)  # remove any half-finished transactions
-        try:
-            if len(safe_names) == 1:
-                yield safe_names[0]
-            else:
-                yield tuple(safe_names)
-        except Exception:  # failure -- delete any temporary files
-            _remove_tmpdirs(safe_names)
-            raise
-        else:  # worked -- move the temporary files to permanent location
-            for safe, orig in zip(safe_names, orig_names):
-                if os.path.exists(safe):
-                    _move_tmp_files(safe, orig)
-            _remove_tmpdirs(safe_names)
+        # no need for try except block here,
+        # because exceptions and tmp dir removal
+        # are handled by tx_tmpdir contextmanager
+        if len(safe_names) == 1:
+            yield safe_names[0]
+        else:
+            yield tuple(safe_names)
+
+        for safe, orig in zip(safe_names, orig_names):
+            if os.path.exists(safe):
+                _move_tmp_files(safe, orig)
 
 
 def _move_tmp_files(safe, orig):
@@ -130,53 +105,34 @@ def _move_tmp_files(safe, orig):
             _move_file_with_sizecheck(safe_idx, orig + check_idx)
 
 
-def _tx_size(orig):
-    """Retrieve transactional size of a file or directory.
-    """
-    if os.path.isdir(orig):
-        return sum([os.path.getsize(os.path.join(d, f))
-                    for (d, _, filenames) in os.walk(orig)
-                    for f in filenames])
-    else:
-        return os.path.getsize(orig)
-
-
 def _move_file_with_sizecheck(tx_file, final_file):
-    """Move transaction file to final location, with size checks avoiding failed transfers.
+    """Move transaction file to final location,
+       with size checks avoiding failed transfers.
     """
 
-    logger.info("Moving %s to %s" % (tx_file, final_file))
+    logger.debug("Moving %s to %s" % (tx_file, final_file))
     # Remove any partially transferred directories or files
     if os.path.exists(final_file):
-        if os.path.isdir(final_file):
-            _remove_tmpdirs([final_file])
-        else:
-            _remove_files([final_file])
-    want_size = _tx_size(tx_file)
-    # Move files from temporary storage to shared storage under a temporary name
+        _remove_files([final_file])
+
+    want_size = utils.get_size(tx_file)
+    # Move files from temporary storage to shared storage
     shutil.move(tx_file, final_file)
 
     # Validate that file sizes of file before and after transfer are identical
     try:
-        transfer_size = _tx_size(final_file)
+        transfer_size = utils.get_size(final_file)
     # Avoid race conditions where transaction file has already been renamed
     except OSError as e:
-        logger.info( str(e))
+        logger.debug("Error when moving a tmp file: %s" % str(e))
         return
-    assert want_size == transfer_size, \
-        ('distributed.transaction.file_transaction: File copy error: '
-         'file or directory on temporary storage ({}) size {} bytes '
-         'does not equal size of file or directory after transfer to '
-         'shared storage ({}) size {} bytes'.format(tx_file, want_size, final_file, transfer_size))
-    # Atomically move temporary file on shared storage to final file on shared storage
-    # os.rename(tmp_file, final_file)
-
-
-def _remove_tmpdirs(fnames):
-    for x in fnames:
-        xdir = os.path.dirname(os.path.abspath(x))
-        if xdir and os.path.exists(xdir):
-            shutil.rmtree(xdir, ignore_errors=True)
+    assert want_size == transfer_size, (
+        'distributed.transaction.file_transaction: File copy error: '
+        'file or directory on temporary storage ({}) size {} bytes '
+        'does not equal size of file or directory after transfer to '
+        'shared storage ({}) size {} bytes'.format(
+            tx_file, want_size, final_file, transfer_size)
+    )
 
 
 def _remove_files(fnames):
@@ -192,18 +148,17 @@ def _remove_files(fnames):
 def _flatten_plus_safe(data_and_files):
     """Flatten names of files and create temporary file names.
     """
-    args = _normalize_args(data_and_files)
-    with tx_tmpdir(args.data) as tmpdir:
+    data, rollback_files = _normalize_args(data_and_files)
+    with tx_tmpdir(data) as tmpdir:
         tx_files = [os.path.join(tmpdir, os.path.basename(f))
-                    for f in args.rollback_files]
-        yield tx_files, args.rollback_files
+                    for f in rollback_files]
+        yield tx_files, rollback_files
 
 
 def _normalize_args(data_and_files):
     data, files = _get_args(data_and_files)
-    flattened_filenames = (f for f in _flatten(files))
-    rollback_files = [f for f in flattened_filenames if f]
-    return DataAndFiles(data, rollback_files)
+    rollback_files = [f for f in _flatten(files) if f]
+    return (data, rollback_files)
 
 
 def _get_args(data_and_files):
