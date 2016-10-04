@@ -8,10 +8,13 @@ checkmounted(){ grep -s "$1" "/proc/mounts";}
 if checkmounted "$_BUCKET"; then
 	echo "S3 bucket is mounted."
 else 
+    echo "Starting syslogd..."
+    service rsyslog start
 	echo "Mounting the bucket..."
 	cmd="goofys --endpoint s3.eu-central-1.amazonaws.com --sse testbcbio /mnt/$_BUCKET"
 	echo $cmd
 	$cmd
+    sleep 1
 	if checkmounted "$_BUCKET"; then
 		echo "Successfully mounted S3 bucket."
 	else
