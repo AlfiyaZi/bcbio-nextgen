@@ -257,18 +257,9 @@ def merge(assembled_gtfs, ref_file, gtf_file, num_cores, data):
     with tx_tmpdir(data=data) as tmpdir:
         gtf_db = gtf.get_gtf_db(gtf_file, location=tmpdir)
         fixed = fix_cufflinks_attributes(gtf_db, clean, data)
-        classified = cpat.classify_with_cpat(
-            fixed, gtf_file, ref_file, data)
-        if not classified:
-            logger.info("Protein coding classification of %s was skipped because "
-                        "CPAT was not found." % fixed)
-            classified = fixed
-        else:
-            fixed_db = gtf.get_gtf_db(fixed, location=tmpdir)
-            classified = annotate_gtf.annotate_novel_coding(
-                fixed_db, gtf_db, ref_file, data, out_file)
-        classified_db = gtf.get_gtf_db(classified, location=tmpdir)
+        classified = annotate_gtf.annotate_novel_coding(
+                fixed, gtf_file, ref_file, data, tmpdir)
         filtered = annotate_gtf.cleanup_transcripts(
-            classified, classified_db, gtf_db, ref_file)
+            classified, gtf_db, ref_file, tmpdir)
         shutil.move(filtered, out_file)
     return out_file
