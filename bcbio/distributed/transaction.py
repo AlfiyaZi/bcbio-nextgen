@@ -17,6 +17,9 @@ from bcbio import utils
 from bcbio.log import logger
 
 
+DEFAULT_TMP = '/tmp'
+
+
 @contextlib.contextmanager
 def tx_tmpdir(data=None, base_dir=None, remove=True):
     """Context manager to create and remove a transactional temporary directory.
@@ -33,7 +36,7 @@ def tx_tmpdir(data=None, base_dir=None, remove=True):
     cwd = os.getcwd()
     config_tmpdir = _get_config_tmpdir(data)
     config_tmpdir_path = _get_config_tmpdir_path(config_tmpdir, cwd)
-    tmp_dir_base = _get_base_tmpdir(base_dir, config_tmpdir_path, cwd)
+    tmp_dir_base = _get_base_tmpdir(config_tmpdir_path)
 
     utils.safe_makedir(tmp_dir_base)
     tmp_dir = tempfile.mkdtemp(dir=tmp_dir_base)
@@ -66,16 +69,9 @@ def _get_config_tmpdir_path(config_tmpdir, cwd):
     return None
 
 
-def _get_base_tmpdir(base_dir, config_tmpdir, cwd):
-    if config_tmpdir:
-        tmp_dir_base = os.path.join(
-            config_tmpdir, "bcbiotx", str(uuid.uuid4()))
-    # elif base_dir:
-    #     tmp_dir_base = os.path.join(base_dir, "tx")
-    else:
-        # tmp_dir_base = os.path.join(cwd, "tx")
-        tmp_dir_base = '/tmp'
-    return tmp_dir_base
+def _get_base_tmpdir(config_tmpdir):
+    base = config_tmpdir if config_tmpdir else DEFAULT_TMP
+    return os.path.join(base, "bcbiotx", str(uuid.uuid4()))
 
 
 def _dirs_to_remove(tmp_dir, tmp_dir_base, config_tmpdir):

@@ -14,8 +14,10 @@ from bcbio.distributed.transaction import _remove_tmpdirs
 from bcbio.distributed.transaction import _remove_files
 from bcbio.distributed.transaction import _move_file_with_sizecheck
 
+
 CWD = 'TEST_CWD'
 CONFIG = {'a': 1}
+TMP = '/tmp'
 
 
 class DummyCM(object):
@@ -80,11 +82,20 @@ def mock_io(mocker):
     yield None
 
 
+@pytest.yield_fixture
+def mock_uuid(mocker):
+    mocked = mocker.patch(
+        'bcbio.distributed.transaction.uuid.uuid4',
+        return_value='TESTUUID4'
+    )
+    yield mocked
+
+
 @mock.patch('bcbio.distributed.transaction.os.path.exists')
-def test_tx_tmpdir_make_tmp_dir(mock_exists, mock_io):
+def test_tx_tmpdir_make_tmp_dir(mock_exists, mock_io, mock_uuid):
     with tx_tmpdir():
         pass
-    expected_basedir = "%s/tx" % CWD
+    expected_basedir = "%s/bcbiotx/TESTUUID4" % TMP
     transaction.tempfile.mkdtemp.assert_called_once_with(
         dir=expected_basedir)
     transaction.utils.safe_makedir.assert_called_once_with(expected_basedir)
@@ -101,7 +112,7 @@ def test_tx_tmpdir_yields_tmp_dir(mock_exists, mock_io):
 @mock.patch('bcbio.distributed.transaction._get_base_tmpdir')
 @mock.patch('bcbio.distributed.transaction._get_config_tmpdir')
 @mock.patch('bcbio.distributed.transaction._get_config_tmpdir_path')
-def test_tx_tmpdir_yields_creares_dirs(
+def test_tx_tmpdir_yields_created_dir(
         mock_get_config_tmpdir_path,
         mock_get_config_tmpdir,
         mock_get_base_tmpdir,
@@ -113,7 +124,7 @@ def test_tx_tmpdir_yields_creares_dirs(
     mock_get_config_tmpdir_path.assert_called_once_with(
         mock_get_config_tmpdir.return_value, CWD)
     mock_get_base_tmpdir.assert_called_once_with(
-        base_dir, mock_get_config_tmpdir_path.return_value, CWD)
+        mock_get_config_tmpdir_path.return_value)
 
     transaction.utils.safe_makedir.assert_called_once_with(
         mock_get_base_tmpdir.return_value)
@@ -122,20 +133,12 @@ def test_tx_tmpdir_yields_creares_dirs(
 
 
 @pytest.mark.parametrize(
-    ('base_dir', 'config_tmp', 'expected'),
-    [
-        (None, None, CWD + '/tx'),
-        ('TEST_BASE_DIR', None, 'TEST_BASE_DIR/tx'),
-        (None, 'TEST_CONFIG_TMP', 'TEST_CONFIG_TMP/bcbiotx/TESTID'),
-        ('TEST_BASE_DIR', 'TEST_CONFIG_TMP', 'TEST_CONFIG_TMP/bcbiotx/TESTID')
-    ]
-)
-def test_get_base_tmpdir(
-        mocker, base_dir, config_tmp, expected):
-    mocker.patch(
-        'bcbio.distributed.transaction.uuid.uuid4', return_value='TESTID')
-
-    result = _get_base_tmpdir(base_dir, config_tmp, CWD)
+    ('config_tmp', 'expected'), [
+        ('/path/to/dir', '%s/bcbiotx/TESTUUID4' % '/path/to/dir'),
+        (None, '%s/bcbiotx/TESTUUID4' % '/tmp'),
+    ])
+def test_get_base_tmpdir(config_tmp, expected, mock_uuid):
+    result = _get_base_tmpdir(config_tmp)
     assert result == expected
 
 
@@ -365,18 +368,10 @@ MockIO = namedtuple('MockIO', [
 @mock.patch('bcbio.distributed.transaction.os.path')
 def test_move_with_sizecheck(mock_path, mock_io):
     _move_file_with_sizecheck('foo', 'bar')
-    transaction.shutil.move.assert_called_once_with('foo', 'bar.bcbiotmp')
+    transaction.shutil.move.assert_called_once_with('foo', 'bar')
 
-@mock.patch('bcbio.distributed.transaction.os.rename')
-@mock.patch('bcbio.distributed.transaction.os.stat')
-@mock.patch('bcbio.distributed.transaction.os.remove')
-@mock.patch('bcbio.distributed.transaction.shutil')
-@mock.patch('bcbio.distributed.transaction.os.path.exists')
-@mock.patch('bcbio.distributed.transaction.os.getcwd')
-def test_file_transaction(
-        mock_getcwd, mock_path, mock_shutil,
-        mock_remove, mock_stat, mock_rename, mock_flatten):
+
+def test_file_transaction(mock_io):
     # TODO extract meaning out of file-tansaction :)
     with file_transaction(CONFIG, '/some/path'):
         pass
-
