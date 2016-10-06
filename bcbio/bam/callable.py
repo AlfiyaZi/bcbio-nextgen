@@ -131,7 +131,7 @@ def _regions_for_coverage(data, region, ref_file, out_file):
     split on later, saving computation and disk IO.
     """
     variant_regions = dd.get_variant_regions_merged(data)
-    ready_region = shared.subset_variant_regions(variant_regions, region, out_file)
+    ready_region = shared.subset_variant_regions(variant_regions, region, out_file, data=data)
     custom_file = "%s-coverageregions.bed" % utils.splitext_plus(out_file)[0]
     region_size = _get_region_size(ref_file, data, region)
     if variant_regions is None and region_size is not None and region_size < dd.get_callable_min_size(data):
