@@ -120,7 +120,7 @@ def salmon_index(gtf_file, ref_file, data, out_dir):
     out_file = os.path.join(out_dir, "versionInfo.json")
     if file_exists(out_file):
         return out_dir
-    with file_transaction(out_dir) as tx_out_dir:
+    with file_transaction(data, out_dir) as tx_out_dir:
         cmd = "{salmon} index -k 31 -p {num_cores} -i {tx_out_dir} -t {gtf_fa}"
         message = "Creating Salmon index for {gtf_fa}."
         do.run(cmd.format(**locals()), message.format(**locals()), None)
