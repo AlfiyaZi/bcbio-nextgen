@@ -183,7 +183,7 @@ def _detect_duplicates(bam_file, out_dir, data):
     if not utils.file_exists(out_file):
         dup_align_bam = postalign.dedup_bam(bam_file, data)
         num_cores = dd.get_num_cores(data)
-        with file_transaction(out_file) as tx_out_file:
+        with file_transaction(data, out_file) as tx_out_file:
             sambamba = config_utils.get_program("sambamba", data, default="sambamba")
             dup_count = ("{sambamba} view --nthreads {num_cores} --count "
                          "-F 'duplicate and not unmapped' "
