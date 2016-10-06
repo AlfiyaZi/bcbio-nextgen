@@ -183,6 +183,18 @@ class AutomatedAnalysisTest(unittest.TestCase):
                   os.path.join(self.data_dir, "run_info-fusion.yaml")]
             subprocess.check_call(cl)
 
+    @attr(sven=True)
+    def test_2_fusion_SVEN(self):
+        """Run an RNA-seq analysis and test fusion genes
+        """
+        self._install_test_files(self.data_dir)
+        with make_workdir() as workdir:
+            cl = ["bcbio_nextgen.py",
+                  get_post_process_yaml(self.data_dir, workdir),
+                  os.path.join(self.data_dir, os.pardir, "test_fusion"),
+                  os.path.join(self.data_dir, "run_info-fusion_SVEN.yaml")]
+            subprocess.check_call(cl)
+
     @attr(rnaseq=True)
     @attr(rnaseq_standard=True)
     @attr(star=True)
@@ -300,6 +312,30 @@ class AutomatedAnalysisTest(unittest.TestCase):
                   get_post_process_yaml(self.data_dir, workdir),
                   os.path.join(self.data_dir, os.pardir, "100326_FC6107FAAXX"),
                   os.path.join(self.data_dir, "run_info-variantcall.yaml")]
+            subprocess.check_call(cl)
+
+    @attr(sven=True)
+    def test_1_variantcall_SVEN1(self):
+        """Test variant calling with Sven's WGS pipeline.
+        """
+        self._install_test_files(self.data_dir)
+        with make_workdir() as workdir:
+            cl = ["bcbio_nextgen.py",
+                  get_post_process_yaml(self.data_dir, workdir),
+                  os.path.join(self.data_dir, os.pardir, "100326_FC6107FAAXX"),
+                  os.path.join(self.data_dir, "run_info-variantcall_SVEN1.yaml")]
+            subprocess.check_call(cl)
+
+    @attr(sven=True)
+    def test_1_variantcall_SVEN2(self):
+        """Test variant calling with Sven's WES pipeline.
+        """
+        self._install_test_files(self.data_dir)
+        with make_workdir() as workdir:
+            cl = ["bcbio_nextgen.py",
+                  get_post_process_yaml(self.data_dir, workdir),
+                  os.path.join(self.data_dir, os.pardir, "100326_FC6107FAAXX"),
+                  os.path.join(self.data_dir, "run_info-variantcall_SVEN2.yaml")]
             subprocess.check_call(cl)
 
     @attr(speed=1)
