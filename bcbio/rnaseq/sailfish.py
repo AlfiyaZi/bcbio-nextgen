@@ -3,7 +3,7 @@ import bcbio.pipeline.datadict as dd
 from bcbio.distributed.transaction import file_transaction
 from bcbio.provenance import do
 from bcbio.utils import (file_exists, safe_makedir, is_gzipped, rbind, partition,
-                         R_package_path, Rscript_cmd)
+                         R_package_path, Rscript_cmd, to_single_data)
 from bcbio.pipeline import config_utils, disambiguate
 from bcbio.rnaseq import gtf
 from bcbio.bam import fastq
@@ -25,7 +25,6 @@ def run_sailfish(data):
     fasta_file = dd.get_ref_file(data)
     assert file_exists(fasta_file), "%s was not found, exiting." % fasta_file
     stranded = dd.get_strandedness(data).lower()
-    # TODO
     out_file = sailfish(fq1, fq2, sailfish_dir, gtf_file, fasta_file, stranded, data)
     data = dd.set_sailfish(data, out_file)
     data = dd.set_sailfish_dir(data, sailfish_dir)
@@ -63,7 +62,6 @@ def sailfish(fq1, fq2, sailfish_dir, gtf_file, ref_file, strandedness, data):
     message = "Quantifying transcripts in {fq1} and {fq2}."
     with file_transaction(data, quant_dir) as tx_out_dir:
         do.run(cmd.format(**locals()), message.format(**locals()), None)
-    # TODO
         _sleuthify_sailfish(tx_out_dir)
     return out_file
 
@@ -77,7 +75,6 @@ def _sleuthify_sailfish(sailfish_dir):
     else:
         rscript = Rscript_cmd()
         cmd = """{rscript} -e 'library("wasabi"); prepare_fish_for_sleuth(c("{sailfish_dir}"))'"""
-        # TODO
         do.run(cmd.format(**locals()), "Converting Sailfish to Sleuth format.")
     return os.path.join(sailfish_dir, "abundance.h5")
 
@@ -96,8 +93,8 @@ def create_combined_fasta(data, out_dir):
         if file_exists(out_file):
             fasta_files.append(out_file)
         else:
-            out_file = _gtf_to_fasta(gtf_file, ref_file, out_file)
-            out_file = _clean_gtf_fa(out_file, out_file)
+            out_file = _gtf_to_fasta(gtf_file, ref_file, out_file, data=data)
+            out_file = _clean_gtf_fa(out_file, out_file, data=data)
             fasta_files.append(out_file)
     out_stem = os.path.join(out_dir, dd.get_genome_build(data))
     if dd.get_disambiguate(data):
@@ -108,7 +105,7 @@ def create_combined_fasta(data, out_dir):
 
     fasta_file_string = " ".join(fasta_files)
     cmd = "cat {fasta_file_string} > {tx_out_file}"
-    with file_transaction(combined_file) as tx_out_file:
+    with file_transaction(data, combined_file) as tx_out_file:
         do.run(cmd.format(**locals()), "Combining transcriptome FASTA files.")
     return combined_file
 
@@ -121,7 +118,7 @@ def sailfish_index(gtf_file, ref_file, data, out_dir, kmer_size):
     gtf_fa = create_combined_fasta(data, out_dir)
     if file_exists(out_dir + "versionInfo.json"):
         return out_dir
-    with file_transaction(out_dir) as tx_out_dir:
+    with file_transaction(data, out_dir) as tx_out_dir:
         cmd = ("{sailfish} index -p {num_cores} -t {gtf_fa} -o {tx_out_dir} "
                "-k {kmer_size}")
         message = "Creating sailfish index for {gtf_fa}."
@@ -141,19 +138,19 @@ def _sailfish_strand_string(strandedness):
             'firststrand': "SR",
             'secondstrand': "SF"}.get(strandedness, "U")
 
-def _gtf_to_fasta(gtf_file, ref_file, out_file):
-    with file_transaction(out_file) as tx_gtf_fa:
+def _gtf_to_fasta(gtf_file, ref_file, out_file, data=None):
+    with file_transaction(data, out_file) as tx_gtf_fa:
         cmd = "gtf_to_fasta {gtf_file} {ref_file} {tx_gtf_fa}"
         message = "Extracting genomic sequences of {gtf_file}."
         do.run(cmd.format(**locals()), message.format(**locals()), None)
     return out_file
 
-def _clean_gtf_fa(gtf_fa, out_file):
+def _clean_gtf_fa(gtf_fa, out_file, data=None):
     """
     convert the gtf_to_fasta sequence names to just the transcript ID
     >1 ENST00000389680 chrM+ 648-1601 -> >ENST00000389680
     """
-    with file_transaction(out_file) as tx_out_file:
+    with file_transaction(data, out_file) as tx_out_file:
         with open(gtf_fa) as in_handle, open(tx_out_file, "w") as out_handle:
             for line in in_handle:
                 if line.startswith(">"):
@@ -162,6 +159,7 @@ def _clean_gtf_fa(gtf_fa, out_file):
     return out_file
 
 def combine_sailfish(samples):
+    data = to_single_data(samples)
     work_dir = dd.get_in_samples(samples, dd.get_work_dir)
     sailfish_dir = os.path.join(work_dir, "sailfish")
     gtf_file = dd.get_in_samples(samples, dd.get_gtf_file)
@@ -189,11 +187,11 @@ def combine_sailfish(samples):
         df["id"] = df.index
         # some versions of the transcript annotations can have duplicated entries
         df = df.drop_duplicates(["id", "sample"])
-        with file_transaction(tidy_file) as tx_out_file:
+        with file_transaction(data, tidy_file) as tx_out_file:
             df.to_csv(tx_out_file, sep="\t", index_label="name")
-        with file_transaction(transcript_tpm_file) as  tx_out_file:
+        with file_transaction(data, transcript_tpm_file) as  tx_out_file:
             df.pivot("id", "sample", "tpm").to_csv(tx_out_file, sep="\t")
-        with file_transaction(gene_tpm_file) as  tx_out_file:
+        with file_transaction(data, gene_tpm_file) as  tx_out_file:
             pivot = df.pivot("id", "sample", "tpm")
             tdf = pd.DataFrame.from_dict(gtf.transcript_to_gene(gtf_file),
                                          orient="index")
@@ -201,7 +199,7 @@ def combine_sailfish(samples):
             pivot = pivot.join(tdf)
             pivot = pivot.groupby("gene_id").agg(np.sum)
             pivot.to_csv(tx_out_file, sep="\t")
-        tx2gene = gtf.tx2genefile(gtf_file, tx2gene)
+        tx2gene = gtf.tx2genefile(gtf_file, tx2gene, data=data)
         logger.info("Finished combining count files into %s." % tidy_file)
 
     updated_samples = []

@@ -260,6 +260,6 @@ def merge(assembled_gtfs, ref_file, gtf_file, num_cores, data):
         classified = annotate_gtf.annotate_novel_coding(
                 fixed, gtf_file, ref_file, data, tmpdir)
         filtered = annotate_gtf.cleanup_transcripts(
-            classified, gtf_db, ref_file, tmpdir)
+            classified, gtf_db, ref_file, tmpdir, data=data)
         shutil.move(filtered, out_file)
     return out_file

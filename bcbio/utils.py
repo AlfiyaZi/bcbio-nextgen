@@ -147,11 +147,12 @@ def to_single_data(input):
 
     Handles both single sample cases (CWL) and all sample cases (standard bcbio).
     """
-    if (isinstance(input, (list, tuple)) and len(input) == 1):
-        return input[0]
-    else:
-        assert isinstance(input, dict), input
-        return input
+    while not isinstance(input, dict):
+        if (isinstance(input, (list, tuple)) and len(input) == 1):
+            input = input[0]
+        else:
+            raise ValueError("Wrong input type: %s" % str(input))
+    return input
 
 def unpack_worlds(items):
     """Handle all the ways we can pass multiple samples for back-compatibility.

@@ -193,7 +193,7 @@ def index_transcriptome(gtf_file, ref_file, data):
     """
     use a GTF file and a reference FASTA file to index the transcriptome
     """
-    gtf_fasta = gtf.gtf_to_fasta(gtf_file, ref_file)
+    gtf_fasta = gtf.gtf_to_fasta(gtf_file, ref_file, data=data)
     bwa = config_utils.get_program("bwa", data["config"])
     cmd = "{bwa} index {gtf_fasta}".format(**locals())
     message = "Creating transcriptome index of %s with bwa." % (gtf_fasta)

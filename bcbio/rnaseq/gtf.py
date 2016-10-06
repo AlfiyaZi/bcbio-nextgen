@@ -98,7 +98,7 @@ def complete_features(db):
         if gene_id and transcript_id and feature.featuretype != "transcript":
             yield feature
 
-def gtf_to_fasta(gtf_file, ref_fasta, cds=False, out_file=None):
+def gtf_to_fasta(gtf_file, ref_fasta, cds=False, out_file=None, data=None):
     """
     convert a GTF to FASTA format if cds=True, use the start/stop codons
     to output only the CDS
@@ -117,12 +117,12 @@ def gtf_to_fasta(gtf_file, ref_fasta, cds=False, out_file=None):
     else:
         cmd = "gffread -g {ref_fasta} -w {tx_tmp_file} {gtf_file}"
     message = "Converting %s to FASTA format." % gtf_file
-    with file_transaction(tmp_file) as tx_tmp_file:
+    with file_transaction(data, tmp_file) as tx_tmp_file:
         do.run(cmd.format(**locals()), message)
 
     transcript = ""
     skipping = False
-    with file_transaction(out_file) as tx_out_file:
+    with file_transaction(data, out_file) as tx_out_file:
         with open(tmp_file) as in_handle, open(tx_out_file, "w") as out_handle:
             for line in in_handle:
                 if line.startswith(">"):
@@ -140,7 +140,7 @@ def gtf_to_fasta(gtf_file, ref_fasta, cds=False, out_file=None):
     os.remove(tmp_file)
     return out_file
 
-def partition_gtf(gtf, coding=False, out_file=False):
+def partition_gtf(gtf, coding=False, out_file=False, data=None):
     """
     return a GTF file of all non-coding or coding transcripts. the GTF must be annotated
     with gene_biotype = "protein_coding" or to have the source column set to the
@@ -150,8 +150,8 @@ def partition_gtf(gtf, coding=False, out_file=False):
     if out_file and file_exists(out_file):
         return out_file
     if not out_file:
-        out_file = tempfile.NamedTemporaryFile(delete=False,
-                                               suffix=".gtf").name
+        out_file = tempfile.NamedTemporaryFile(
+            delete=False, suffix=".gtf").name
 
     if coding:
         pred = lambda biotype: biotype and biotype == "protein_coding"
@@ -161,7 +161,7 @@ def partition_gtf(gtf, coding=False, out_file=False):
     biotype_lookup = _biotype_lookup_fn(gtf)
 
     db = get_gtf_db(gtf)
-    with file_transaction(out_file) as tx_out_file:
+    with file_transaction(data, out_file) as tx_out_file:
         with open(tx_out_file, "w") as out_handle:
             for feature in db.all_features():
                 biotype = biotype_lookup(feature)
@@ -202,15 +202,15 @@ def split_gtf(gtf, sample_size=None, out_dir=None):
                 part2_handle.write(str(feature) + "\n")
     return part1, part2
 
-def get_coding_noncoding_transcript_ids(gtf):
+def get_coding_noncoding_transcript_ids(gtf, data=None):
     """
     return a set of coding and non-coding transcript_ids from a GTF
     """
-    coding_gtf = partition_gtf(gtf, coding=True)
+    coding_gtf = partition_gtf(gtf, coding=True, data=data)
     coding_db = get_gtf_db(coding_gtf)
     coding_ids = set([x['transcript_id'][0] for x in coding_db.all_features()
                   if 'transcript_id' in x.attributes])
-    noncoding_gtf = partition_gtf(gtf)
+    noncoding_gtf = partition_gtf(gtf, data=data)
     noncoding_db = get_gtf_db(noncoding_gtf)
     noncoding_ids = set([x['transcript_id'][0] for x in noncoding_db.all_features()
                      if 'transcript_id' in x.attributes])
@@ -284,7 +284,7 @@ def _biotype_lookup_fn(gtf):
     else:
         return None
 
-def tx2genefile(gtf, out_file=None):
+def tx2genefile(gtf, out_file=None, data=None):
     """
     write out a file of transcript->gene mappings.
     use the installed tx2gene.csv if it exists, else write a new one out
@@ -294,7 +294,7 @@ def tx2genefile(gtf, out_file=None):
         return installed_tx2gene
     if file_exists(out_file):
         return out_file
-    with file_transaction(out_file) as tx_out_file:
+    with file_transaction(data, out_file) as tx_out_file:
         with open(tx_out_file, "w") as out_handle:
             for k, v in transcript_to_gene(gtf).iteritems():
                 out_handle.write(",".join([k, v]) + "\n")

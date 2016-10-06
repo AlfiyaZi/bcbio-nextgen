@@ -21,7 +21,7 @@ def annotate_novel_coding(assembled_gtf, ref_gtf, ref_fasta, data, tmpdir=None):
     known_transcript = {feature['transcript_id'][0]: feature.source for feature in
                         gtf.complete_features(ref_db)}
     assembled_db = gtf.get_gtf_db(assembled_gtf, location=tmpdir)
-    with file_transaction(out_file) as tx_out_file:
+    with file_transaction(data, out_file) as tx_out_file:
         with open(tx_out_file, 'w') as out_handle:
             for feature in gtf.complete_features(assembled_db):
                 transcript_id = feature['transcript_id'][0]
@@ -33,7 +33,7 @@ def annotate_novel_coding(assembled_gtf, ref_gtf, ref_fasta, data, tmpdir=None):
     return out_file
 
 
-def cleanup_transcripts(assembled_gtf, ref_db, ref_fasta, tmpdir=None):
+def cleanup_transcripts(assembled_gtf, ref_db, ref_fasta, tmpdir=None, data=None):  # noqa
     """
     Clean up a GTF file of assembled transcripts
     1) if a known gene is known to code for a protein, remove any *novel*
@@ -49,10 +49,10 @@ def cleanup_transcripts(assembled_gtf, ref_db, ref_fasta, tmpdir=None):
                         in gtf.complete_features(ref_db)}
     ref_gene_to_source = gtf.get_gene_source_set_from_db(ref_db)
     assembled_db = gtf.get_gtf_db(assembled_gtf, location=tmpdir)
-    assembled_fasta = gtf.gtf_to_fasta(assembled_gtf, ref_fasta)
+    assembled_fasta = gtf.gtf_to_fasta(assembled_gtf, ref_fasta, data=data)
     lengths = fasta.sequence_length(assembled_fasta)
 
-    with file_transaction(out_file) as tx_out_file:
+    with file_transaction(data, out_file) as tx_out_file:
         with open(tx_out_file, 'w') as out_handle:
             for feature in gtf.complete_features(assembled_db):
                 transcript_id = feature['transcript_id'][0]
