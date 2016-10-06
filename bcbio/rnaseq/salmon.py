@@ -5,7 +5,6 @@ http://biorxiv.org/content/early/2015/06/27/021592
 """
 
 import os
-import sys
 
 from bcbio.rnaseq import sailfish
 import bcbio.pipeline.datadict as dd

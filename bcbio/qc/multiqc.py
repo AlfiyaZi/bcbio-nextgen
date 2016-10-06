@@ -212,33 +212,33 @@ def _merge_metrics(samples):
     out_file = os.path.join("metrics", "metrics.tsv")
     dt_together = []
     cov = {}
-    data = utils.to_single_data(samples)
-    with file_transaction(data, out_file) as out_tx:
-        for s in samples:
-            sample_name = dd.get_sample_name(s)
-            s = _add_disambiguate(s)
-            if sample_name in cov:
-                continue
-            m = tz.get_in(['summary', 'metrics'], s)
-            sample_file = os.path.abspath(os.path.join("metrics", "%s_bcbio.txt" % sample_name))
-            if not tz.get_in(['summary', 'qc'], s):
-                s['summary'] = {"qc": {}}
-            if m:
-                for me in m.keys():
-                    if isinstance(m[me], list) or isinstance(m[me], dict) or isinstance(m[me], tuple):
-                        m.pop(me, None)
-                dt = pd.DataFrame(m, index=['1'])
-                dt['avg_coverage_per_region'] = _get_coverage_per_region(s)
-                cov[sample_name] = dt['avg_coverage_per_region'][0]
-                dt.columns = [k.replace(" ", "_").replace("(", "").replace(")", "") for k in dt.columns]
-                dt['sample'] = sample_name
-                dt['rRNA_rate'] = m.get('rRNA_rate', "NA")
-                dt = _fix_duplicated_rate(dt)
-                utils.safe_makedir(os.path.dirname(sample_file))
-                dt.transpose().to_csv(sample_file, sep="\t", header=False)
-                dt_together.append(dt)
-                s['summary']['qc'].update({'bcbio':{'base': sample_file, 'secondary': []}})
-        if len(dt_together) > 0:
+    for s in samples:
+        sample_name = dd.get_sample_name(s)
+        s = _add_disambiguate(s)
+        if sample_name in cov:
+            continue
+        m = tz.get_in(['summary', 'metrics'], s)
+        if not m:
+            continue
+        sample_file = os.path.abspath(os.path.join("metrics", "%s_bcbio.txt" % sample_name))
+        if not tz.get_in(['summary', 'qc'], s):
+            s['summary'] = {"qc": {}}
+        for me in m.keys():
+            if isinstance(m[me], list) or isinstance(m[me], dict) or isinstance(m[me], tuple):
+                m.pop(me, None)
+        dt = pd.DataFrame(m, index=['1'])
+        dt['avg_coverage_per_region'] = _get_coverage_per_region(s)
+        cov[sample_name] = dt['avg_coverage_per_region'][0]
+        dt.columns = [k.replace(" ", "_").replace("(", "").replace(")", "") for k in dt.columns]
+        dt['sample'] = sample_name
+        dt['rRNA_rate'] = m.get('rRNA_rate', "NA")
+        dt = _fix_duplicated_rate(dt)
+        utils.safe_makedir(os.path.dirname(sample_file))
+        dt.transpose().to_csv(sample_file, sep="\t", header=False)
+        dt_together.append(dt)
+        s['summary']['qc'].update({'bcbio':{'base': sample_file, 'secondary': []}})
+    if len(dt_together) > 0:
+        with file_transaction(samples[0], out_file) as out_tx:
             dt_together = utils.rbind(dt_together)
             dt_together.to_csv(out_tx, index=False, sep="\t")
 

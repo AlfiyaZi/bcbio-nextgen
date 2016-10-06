@@ -1,7 +1,7 @@
 import os
 import shutil
 import tempfile
-from bcbio.utils import file_exists, to_single_data
+from bcbio.utils import file_exists
 from bcbio.bam import is_paired, _get_sort_order, sort
 from bcbio.pipeline import datadict as dd
 from bcbio.provenance import do
@@ -78,11 +78,10 @@ def _prepare_bam_file(bam_file, tmp_dir, config):
         bam_file = sort(bam_file, config, "queryname")
     return bam_file
 
-def isoform_to_gene_name(gtf_file, out_file, samples):
+def isoform_to_gene_name(gtf_file, out_file, data):
     """
     produce a table of isoform -> gene mappings for loading into EBSeq
     """
-    data = to_single_data(samples)
     if not out_file:
          out_file = tempfile.NamedTemporaryFile(delete=False).name
     if file_exists(out_file):

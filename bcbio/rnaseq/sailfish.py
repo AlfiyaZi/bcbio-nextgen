@@ -159,7 +159,6 @@ def _clean_gtf_fa(gtf_fa, out_file, data=None):
     return out_file
 
 def combine_sailfish(samples):
-    data = to_single_data(samples)
     work_dir = dd.get_in_samples(samples, dd.get_work_dir)
     sailfish_dir = os.path.join(work_dir, "sailfish")
     gtf_file = dd.get_in_samples(samples, dd.get_gtf_file)
