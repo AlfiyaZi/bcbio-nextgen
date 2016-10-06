@@ -221,7 +221,7 @@ def coverage(data, out_dir):
         parse_total_file = os.path.join(sample + "_cov_total.tsv")
         cores = dd.get_num_cores(data)
         if not file_exists(parse_file):
-            with tx_tmpdir(data, work_dir) as tmp_dir:
+            with tx_tmpdir(data) as tmp_dir:
                 with file_transaction(data, parse_file) as out_tx:
                     cmd = ("{sambamba} depth region -F \"not unmapped\" -t {cores} "
                            "%s -T 1 -T 5 -T 10 -T 20 -T 40 -T 50 -T 60 -T 70 "
@@ -363,7 +363,7 @@ def priority_coverage(data, out_dir):
     nthreads = dd.get_num_cores(data)
     in_bam = dd.get_align_bam(data) or dd.get_work_bam(data)
     sambamba = config_utils.get_program("sambamba", data, default="sambamba")
-    with tx_tmpdir(data, work_dir) as tmp_dir:
+    with tx_tmpdir(data) as tmp_dir:
         cleaned_bed = clean_file(bed_file, data, prefix="cov-", simple=True)
         with file_transaction(data, out_file) as tx_out_file:
             parse_cmd = "awk '{print $1\"\t\"$2\"\t\"$2\"\t\"$3\"\t\"$10}' | sed '1d'"
@@ -391,7 +391,7 @@ def priority_total_coverage(data, out_dir):
     nthreads = dd.get_num_cores(data)
     in_bam = dd.get_align_bam(data) or dd.get_work_bam(data)
     sambamba = config_utils.get_program("sambamba", data, default="sambamba")
-    with tx_tmpdir(data, work_dir) as tmp_dir:
+    with tx_tmpdir(data) as tmp_dir:
         cleaned_bed = clean_file(bed_file, data)
         with file_transaction(data, out_file) as tx_out_file:
             cmd = ("{sambamba} depth region -t {nthreads} -L {cleaned_bed} "
