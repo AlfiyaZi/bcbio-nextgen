@@ -24,7 +24,8 @@ DEFAULT_WORKDIR = os.path.join(os.path.dirname(__file__), OUTPUT_DIR)
 def make_workdir():
     remove_old_dir = True
     # remove_old_dir = False
-    dirname = os.environ.get('BCBIO_WORKDIR', DEFAULT_WORKDIR)
+    env_dirname = os.environ.get('BCBIO_WORKDIR', None)
+    dirname = env_dirname or DEFAULT_WORKDIR
     if remove_old_dir:
         if os.path.exists(dirname):
             shutil.rmtree(dirname)
@@ -62,7 +63,8 @@ def get_post_process_yaml(data_dir, workdir):
         system = None
     if system is None or not os.path.exists(system):
         try:
-            _, system = load_system_config("bcbio_system.yaml")
+            _, system = load_system_config(
+                config_file="bcbio_system.yaml", work_dir=workdir)
         except ValueError:
             system = None
     if system is None or not os.path.exists(system):

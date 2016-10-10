@@ -61,7 +61,7 @@ def _create_log_handler(config, add_hostname=False, direct_hostname=False):
     if log_dir:
         if not os.path.exists(log_dir):
             utils.safe_makedir(log_dir)
-            # Wait to propagate, 
+            # Wait to propagate,
             # Otherwise see logging errors on distributed filesystems.
             time.sleep(5)
     handlers.append(

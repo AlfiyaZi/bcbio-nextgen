@@ -271,10 +271,11 @@ def run_rnaseq(bam_file, data, out_dir):
     single_end = not bam.is_paired(bam_file)
     library = strandedness[dd.get_strandedness(data)]
     if not utils.file_exists(report_file):
-        utils.safe_makedir(out_dir)
-        bam.index(bam_file, config)
-        cmd = _rnaseq_qualimap_cmd(data, bam_file, out_dir, gtf_file, single_end, library)
-        do.run(cmd, "Qualimap for {}".format(dd.get_sample_name(data)))
+        with file_transaction(data, out_dir) as tx_out_dir:
+            utils.safe_makedir(tx_out_dir)
+            bam.index(bam_file, config)
+            cmd = _rnaseq_qualimap_cmd(data, bam_file, tx_out_dir, gtf_file, single_end, library)
+            do.run(cmd, "Qualimap for {}".format(dd.get_sample_name(data)))
         cmd = "sed -i 's/bam file = .*/bam file = %s.bam/' %s" % (dd.get_sample_name(data), raw_file)
         do.run(cmd, "Fix Name Qualimap for {}".format(dd.get_sample_name(data)))
     metrics = _parse_rnaseq_qualimap_metrics(report_file)

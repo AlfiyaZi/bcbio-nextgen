@@ -71,8 +71,6 @@ def align(fastq_file, pair_file, ref_file, names, align_dir, data):
     if not srna:
         cmd += " --quantMode TranscriptomeSAM "
 
-    # with file_transaction(data, final_out) as tx_final_out:
-    #     tx_out_prefix = out_prefix
     with file_transaction(data, align_dir, final_out) as (tx_align_dir, tx_final_out):
         utils.safe_makedir(tx_align_dir)
         tx_out_prefix = os.path.join(tx_align_dir, os.path.basename(out_prefix))

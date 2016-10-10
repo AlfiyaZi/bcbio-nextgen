@@ -8,14 +8,14 @@ details:
     algorithm:
       # --- Alignment pre-processing
       quality_format: Standard
-      align_split_size: 5000000
+      align_split_size: 9000
       strandedness: unstranded
       # --- Alignment
       platform: illumina
       aligner: star
       disambiguate:
-       - mm10
-       --- Alignment post-processing
+       - mm9
+      # --- Alignment post-processing
       mark_duplicates: false
       recalibrate: false
       realign: false

@@ -8,13 +8,13 @@ details:
     algorithm:
       # --- Alignment pre-processing
       quality_format: Standard
-      align_split_size: 5000000
+      align_split_size: 9000
       # --- Alignment
       platform: illumina
       aligner: bwa
-      #disambiguate:
-      # - mm10
-      # --- Alignment post-processing
+      disambiguate:
+       - mm9
+      #--- Alignment post-processing
       mark_duplicates: true
       recalibrate: false
       realign: false
