@@ -108,24 +108,16 @@ def _move_tmp_files(safe, orig):
 def _move_file_with_sizecheck(tx_file, final_file):
     """Move transaction file to final location,
        with size checks avoiding failed transfers.
+       To be used on file systems where renaming a file or dir is not possible,
+       or wasteful.
     """
-
     logger.debug("Moving %s to %s" % (tx_file, final_file))
-    # Remove any partially transferred directories or files
-    if os.path.exists(final_file):
-        _remove_files([final_file])
-
-    want_size = utils.get_size(tx_file)
     # Move files from temporary storage to shared storage
-    shutil.move(tx_file, final_file)
-
     # Validate that file sizes of file before and after transfer are identical
-    try:
-        transfer_size = utils.get_size(final_file)
-    # Avoid race conditions where transaction file has already been renamed
-    except OSError as e:
-        logger.debug("Error when moving a tmp file: %s" % str(e))
-        return
+    want_size = utils.get_size(tx_file)
+    shutil.move(tx_file, final_file)
+    transfer_size = utils.get_size(final_file)
+
     assert want_size == transfer_size, (
         'distributed.transaction.file_transaction: File copy error: '
         'file or directory on temporary storage ({}) size {} bytes '
