@@ -1,7 +1,7 @@
 #source this file.
 
 
-_BUCKET="testbucket"
+_BUCKET="testbcbio"
 checkmounted(){ grep -s "$1" "/proc/mounts";}
 
 
@@ -11,7 +11,7 @@ else
     echo "Starting syslogd..."
     service rsyslog start
 	echo "Mounting the bucket..."
-	cmd="goofys --endpoint s3.eu-central-1.amazonaws.com --sse testbcbio /mnt/$_BUCKET"
+	cmd="goofys --endpoint s3.eu-central-1.amazonaws.com --sse $_BUCKET /mnt/$_BUCKET"
 	echo $cmd
 	$cmd
     sleep 1
@@ -24,7 +24,7 @@ else
 	fi
 fi
 
-export BCBIO_WORKDIR=/mnt/testbucket/testworkdir
+export BCBIO_WORKDIR=/mnt/$_BUCKET/testworkdir
 echo "BCBIO_WORKDIR is now $BCBIO_WORKDIR"
 
 deactivate () {
