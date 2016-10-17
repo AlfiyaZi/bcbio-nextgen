@@ -12,15 +12,17 @@ import logbook.queues
 from bcbio import utils
 
 LOG_NAME = "bcbio-nextgen"
-
-def get_log_dir(config):
-    d = config.get("log_dir", "log")
-    return d
+DEFAULT_LOG_DIR = "/var/log/bcbio"
 
 logger = logbook.Logger(LOG_NAME)
 logger_cl = logbook.Logger(LOG_NAME + "-commands")
 logger_stdout = logbook.Logger(LOG_NAME + "-stdout")
 mpq = multiprocessing.Queue(-1)
+
+
+def get_log_dir(config):
+    return config.get("log_dir", DEFAULT_LOG_DIR)
+
 
 def _is_cl(record, _):
     return record.channel == LOG_NAME + "-commands"
@@ -61,24 +63,29 @@ def _create_log_handler(config, add_hostname=False, direct_hostname=False):
     if log_dir:
         if not os.path.exists(log_dir):
             utils.safe_makedir(log_dir)
-            # Wait to propagate,
-            # Otherwise see logging errors on distributed filesystems.
+            # Wait to propagate, Otherwise see logging errors on distributed filesystems.
             time.sleep(5)
-    handlers.append(
-        logbook.StreamHandler(
-            sys.stdout,
-            format_string="{record.message}",
-            level="DEBUG"
-        )
-    )
-    handlers.append(
-        logbook.StreamHandler(
-            sys.stderr,
-            format_string=format_str,
-            bubble=True,
-            filter=_not_cl
-        )
-    )
+        handlers.append(logbook.FileHandler(os.path.join(log_dir, "%s.log" % LOG_NAME),
+                                            format_string=format_str, level="INFO",
+                                            filter=_not_cl))
+        handlers.append(logbook.FileHandler(os.path.join(log_dir, "%s-debug.log" % LOG_NAME),
+                                            format_string=format_str, level="DEBUG", bubble=True,
+                                            filter=_not_cl))
+        handlers.append(logbook.FileHandler(os.path.join(log_dir, "%s-commands.log" % LOG_NAME),
+                                            format_string=format_str, level="DEBUG",
+                                            filter=_is_cl))
+    handlers.append(logbook.StreamHandler(sys.stdout, format_string="{record.message}",
+                                          level="DEBUG", filter=_is_stdout))
+
+    email = config.get("email", config.get("resources", {}).get("log", {}).get("email"))
+    if email:
+        email_str = u'''Subject: [bcbio-nextgen] {record.extra[run]} \n\n {record.message}'''
+        handlers.append(logbook.MailHandler(email, [email],
+                                            format_string=email_str,
+                                            level='INFO', bubble=True))
+
+    handlers.append(logbook.StreamHandler(sys.stderr, format_string=format_str, bubble=True,
+                                          filter=_not_cl))
     return CloseableNestedSetup(handlers)
 
 def create_base_logger(config=None, parallel=None):
