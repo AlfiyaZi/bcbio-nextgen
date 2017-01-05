@@ -31,7 +31,7 @@ install:
 
 script:
   - docker run  bcbio/bcbio:latest bash -c "py.test tests/unit --cov=bcbio"
-  - docker run  bcbio/bcbio:latest bash -c "py.test tests/integration -v -m 'not install_required' --cov=bcbio"
+    #  - docker run  bcbio/bcbio:latest bash -c "py.test tests/integration -v -m 'not install_required' --cov=bcbio"
   - py.test tests/bcbio_vm -v -m docker
 
 notifications:
